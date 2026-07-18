@@ -4,7 +4,8 @@ const cors = require("cors");
 const connectDB = require("./config/database");
 const authRouter = require("./routes/auth.routes")
 const authenticateToken = require("./middleware/auth.middleware");
-console.log(typeof authenticateToken);
+const complaintRouter = require("./routes/complaint.routes");
+
 dotenv.config();
 connectDB();
 const app = express();
@@ -12,7 +13,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use("/api/auth",authRouter);
-
+app.use("/api/complaints",complaintRouter);
 
 app.get("/api/profile",authenticateToken,(req,res)=>{
     res.json({
