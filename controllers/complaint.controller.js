@@ -9,14 +9,26 @@ const createComplaint = async(req,res)=>{
             priority,
             anonymous
         } = req.body;
+        const image = req.file ? req.file.filename : "";
+
         const complaint = await Complaint.create({
             title,
             description,
             category,
             priority,
             anonymous,
-            createdBy:req.user.id
-        });
+            createdBy: req.user.id,
+            image,
+
+        history: [
+        {
+            action: "Complaint Created",
+            status: "Pending",
+            remark: "",
+            updatedBy: "Student"
+        }
+    ]
+});
         res.status(201).json({
             success:true,
             message:"Complaint Created Successfully",
@@ -88,7 +100,7 @@ const updateComplaint = async(req,res)=>{
         }
         //Owner Check
         if(complaint.createdBy.toString() !== req.user.id){
-            return res.json.status(403).json({
+            return res.status(403).json({
                 success:false,
                 message:"Access Denied"
             });
@@ -160,6 +172,28 @@ const deleteComplaint = async(req,res)=>{
     }
 };
 
+const getComplaintHistory = async(req,res)=>{
+    try{
+        const complaint = await Complaint.findById(req.params.id);
+        if(!complaint){
+            return res.status(404).json({
+                success:false,
+                message:"Complaint Not Found"
+            });
+        }
+        res.status(200).json({
+            success:true,
+            count:complaint.history.length,
+            history:complaint.history
+        });
+    }catch(error){
+        res.status(500).json({
+            success:false,
+            message:error.message
+        });
+    }
+};
+
 
 
 
@@ -175,5 +209,6 @@ module.exports ={
     getMyComplaints,
     getComplaintById,
     updateComplaint,
-    deleteComplaint
+    deleteComplaint,
+    getComplaintHistory
 };

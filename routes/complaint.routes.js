@@ -2,19 +2,21 @@ const express = require("express");
 const router = express.Router();
 
 const authenticateToken = require("../middleware/auth.middleware");
-
+const upload = require("../middleware/upload.middleware");
 const{
     createComplaint,
     getMyComplaints,
     getComplaintById,
     updateComplaint,
-    deleteComplaint
+    deleteComplaint,
+    getComplaintHistory
 }=require("../controllers/complaint.controller");
 
 
 router.post(
     "/create",
     authenticateToken,
+    upload.single("image"),
     createComplaint
 );
 router.get(
@@ -22,6 +24,11 @@ router.get(
     authenticateToken,
     getMyComplaints
 );
+router.get(
+    "/history/:id",
+    authenticateToken,
+    getComplaintHistory
+)
 router.get(
     "/:id",
     authenticateToken,
@@ -37,6 +44,7 @@ router.delete(
     authenticateToken,
     deleteComplaint
 )
+
 
 
 

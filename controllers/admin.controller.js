@@ -4,13 +4,75 @@ const Complaint = require("../models/complaint.model");
 const getAllComplaints = async (req, res) => {
     try {
 
-        const complaints = await Complaint.find()
+        const {
+            status,
+            category,
+            priority,
+            search,
+            sort,
+            page = 1,
+            limit = 10
+        } = req.query;
+
+        const filter = {};
+
+        // Search
+        if (search) {
+            filter.$or = [
+                {
+                    title: {
+                        $regex: search,
+                        $options: "i"
+                    }
+                },
+                {
+                    description: {
+                        $regex: search,
+                        $options: "i"
+                    }
+                }
+            ];
+        }
+
+        // Filters
+        if (status) {
+            filter.status = status;
+        }
+
+        if (category) {
+            filter.category = category;
+        }
+
+        if (priority) {
+            filter.priority = priority;
+        }
+
+        // Sorting
+        const sortOption = {};
+
+        if (sort === "newest") {
+            sortOption.createdAt = -1;
+        } else if (sort === "oldest") {
+            sortOption.createdAt = 1;
+        } else {
+            // Default sorting
+            sortOption.createdAt = -1;
+        }
+
+        // Fetch complaints
+        const complaints = await Complaint.find(filter)
             .populate("createdBy", "name email")
-            .sort({ createdAt: -1 });
+            .sort(sortOption)
+            .skip((page - 1) * limit)
+            .limit(Number(limit));
+
+        const total = await Complaint.countDocuments(filter);
 
         res.status(200).json({
             success: true,
-            count: complaints.length,
+            total,
+            currentPage: Number(page),
+            totalPages: Math.ceil(total / Number(limit)),
             data: complaints
         });
 
@@ -28,7 +90,7 @@ const getAllComplaints = async (req, res) => {
 const updateComplaintStatus = async (req, res) => {
     try {
 
-        const { status } = req.body;
+        const {status,adminRemark} = req.body;
 
         const validStatus = [
             "Pending",
@@ -54,6 +116,15 @@ const updateComplaintStatus = async (req, res) => {
         }
 
         complaint.status = status;
+        if (adminRemark) {
+            complaint.adminRemark = adminRemark;
+        }
+        complaint.history.push({
+            action: "Status Updated",
+            status: status,
+            remark: adminRemark || "",
+            updatedBy: "Admin"
+});
 
         await complaint.save();
 
