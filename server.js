@@ -11,6 +11,7 @@ const path = require("path");
 
 
 dotenv.config();
+
 connectDB();
 const app = express();
 

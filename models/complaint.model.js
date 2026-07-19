@@ -12,15 +12,17 @@ const complaintSchema = new mongoose.Schema(
         },
         category:{
             type:String,
-            enum:[
-                "Hostel",
-                "Academic",
-                "Library",
-                "Transport",
-                "Maintenance",
-                "Cafeteria",
-                "Other"
-            ],
+            enum: [
+    "Academic",
+    "Maintenance",
+    "Hostel",
+    "IT",
+    "Transport",
+    "Security",
+    "Library",
+    "Cafeteria",
+    "Other"
+],
             default:"Other"
         },
         priority:{
@@ -28,6 +30,19 @@ const complaintSchema = new mongoose.Schema(
             enum:["Low","Medium","High"],
             default:"Medium"
         },
+        department:{
+            type:String,
+            default:"General"
+        },
+        summary:{
+            type:String,
+            default:""
+        },
+        troubleshooting:[
+            {
+                type:String
+            }
+        ],
         status:{
             type:String,
             enum:["Pending","In Progress","Resolved","Rejected"],
@@ -68,7 +83,7 @@ const complaintSchema = new mongoose.Schema(
         date: {
             type: Date,
             default: Date.now
-        }
+        },
     }
 ],
     },

@@ -1,14 +1,24 @@
+const {analyzeComplaint}=require("../services/ai.service");
 const Complaint = require("../models/complaint.model");
+
 
 const createComplaint = async(req,res)=>{
     try{
         const {
             title,
             description,
-            category,
-            priority,
             anonymous
         } = req.body;
+        // AI Analysis
+    const aiResult = await analyzeComplaint(title, description);
+
+    const {
+        category,
+        priority,
+        department,
+        summary,
+        troubleshooting
+        } = aiResult;
         const image = req.file ? req.file.filename : "";
 
         const complaint = await Complaint.create({
@@ -16,9 +26,13 @@ const createComplaint = async(req,res)=>{
             description,
             category,
             priority,
+            department,
+            summary,
+            troubleshooting,
             anonymous,
-            createdBy: req.user.id,
             image,
+            createdBy: req.user.id,
+            
 
         history: [
         {
