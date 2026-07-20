@@ -65,6 +65,21 @@ const complaintSchema = new mongoose.Schema(
             ref:"User",
             required:true
         },
+        supporters: {
+            type: [
+        {
+            user: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User"
+            },
+            supportedAt: {
+                type: Date,
+                default: Date.now
+            }
+        }
+    ],
+    default: []
+},
         history: [
     {
         action: {

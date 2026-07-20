@@ -12,6 +12,29 @@ const createComplaint = async(req,res)=>{
         // AI Analysis
     const aiResult = await analyzeComplaint(title, description);
 
+    const similarComplaint = await Complaint.findOne({
+        summary:{
+            $regex:aiResult.summary,
+            $options:"i"
+        },
+        status:{
+            $ne:"Resolved"
+        }
+    });
+    if(similarComplaint){
+        return res.status(200).json({
+            success:true,
+            duplicate:true,
+            message:"A Similar complaint already exixts.",
+            data:{
+                complaintId:similarComplaint._id,
+                title:similarComplaint.title,
+                status:similarComplaint.status,
+                supporters:similarComplaint.supporters.length
+            }
+        });
+    }
+
     const {
         category,
         priority,
@@ -32,8 +55,11 @@ const createComplaint = async(req,res)=>{
             anonymous,
             image,
             createdBy: req.user.id,
-            
-
+        supporters:[
+            {
+                user:req.user.id
+            }
+        ],
         history: [
         {
             action: "Complaint Created",
@@ -78,6 +104,9 @@ const getMyComplaints = async(req,res)=>{
 const getComplaintById = async(req,res)=>{
     try{
         const complaint = await Complaint.findById(req.params.id);
+        if (!complaint.supporters) {
+    complaint.supporters = [];
+        }
         if(!complaint){
             return res.status(404).json({
                 success:false,
@@ -207,6 +236,51 @@ const getComplaintHistory = async(req,res)=>{
         });
     }
 };
+const supportComplaint = async(req,res)=>{
+    try{
+        const complaint = await Complaint.findById(req.params.id);
+        if(!complaint){
+            return res.status(404).json({
+                success:false,
+                message:"Complaint Not Found"
+            });
+        }
+        //Prevent supporting resolved complaints
+        if(complaint.status === "Resolved"){
+            return res.status(400).json({
+                success:false,
+                message:"Complaint is already resolved"
+            });
+        }
+        //check if the user already supported
+        const alreadySupported = complaint.supporters.some(
+            supporter => supporter.user.toString() === req.params.id
+        );
+    
+    //Add supporter
+    complaint.supporters.push({
+        user:req.user.id
+    });
+    //Add history entry
+    complaint.history.push({
+        action:"Complaint Supported",
+        status:complaint.status,
+        remark:"Another student supported this complaint.",
+        updatedBy:"Student"
+    });
+    await complaint.save();
+    res.status(200).json({
+        success:true,
+        message:"Complaint Supported Successfully.",
+        supporters:complaint.supporters.length
+    });
+}catch(error){
+    res.status(500).json({
+        success:false,
+        message:error.message
+    });
+}
+};
 
 
 
@@ -224,5 +298,6 @@ module.exports ={
     getComplaintById,
     updateComplaint,
     deleteComplaint,
-    getComplaintHistory
+    getComplaintHistory,
+    supportComplaint
 };

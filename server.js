@@ -7,6 +7,7 @@ const authenticateToken = require("./middleware/auth.middleware");
 const complaintRouter = require("./routes/complaint.routes");
 const adminRouter = require("./routes/admin.routes");
 const path = require("path");
+const helmet = require("helmet");
 
 
 
@@ -17,6 +18,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(helmet());
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth",authRouter);

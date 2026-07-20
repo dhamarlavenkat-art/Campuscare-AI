@@ -9,14 +9,21 @@ const{
     getComplaintById,
     updateComplaint,
     deleteComplaint,
-    getComplaintHistory
+    getComplaintHistory,
+    supportComplaint
 }=require("../controllers/complaint.controller");
+const {
+    complaintValidation,
+    validate
+}=require("../validation/complaint.validation");
 
 
 router.post(
     "/create",
     authenticateToken,
     upload.single("image"),
+    complaintValidation,
+    validate,
     createComplaint
 );
 router.get(
@@ -43,6 +50,11 @@ router.delete(
     "/delete/:id",
     authenticateToken,
     deleteComplaint
+)
+router.post(
+    "/support/:id",
+    authenticateToken,
+    supportComplaint
 )
 
 
