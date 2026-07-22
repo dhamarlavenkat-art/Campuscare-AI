@@ -25,7 +25,7 @@ router.get(
     authenticateToken,
     adminMiddleware,
     getDashboardStats
-)
+);
 
 
 

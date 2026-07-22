@@ -4,7 +4,7 @@ const jwt = require("jsonwebtoken");
 
 const registerUser = async(req,res)=>{
     try{
-        const {name,email,password} = req.body;
+        const { name, email, password, role, department } = req.body;
         const existingUser = await User.findOne({email});
         if(existingUser){
             return res.status(400).json({
@@ -12,21 +12,30 @@ const registerUser = async(req,res)=>{
                 message:"User Already Exist"
             });
         }
+        if (role === "admin" && !department) {
+            return res.status(400).json({
+            success: false,
+            message: "Department is required for admin"
+        });
+        }
         //hashed password
         const hashedPassword = await bcrypt.hash(password,10);
         //create user
-        const user = await User.create({
-            name,
-            email,
-            password:hashedPassword
-        });
+        const userResponse = {
+            id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department: user.department
+};
+
         return res.status(201).json({
-            success:true,
-            message:"user register successfully",
-            data:user
-        })
-    }
-    catch(error){
+            success: true,
+            message: "User register successfully",
+            data: userResponse
+});
+        }
+        catch(error){
         return res.status(500).json({
             success:false,
             message:error.message
@@ -54,25 +63,27 @@ const loginUser = async(req,res)=>{
             });
         }
         //generate JWT Token
-        const token=jwt.sign(
-            {
-                id:user._id,
-                role:user.role
-            },
+        const token = jwt.sign(
+        {
+            id: user._id,
+            role: user.role,
+            department: user.department
+        },
             process.env.JWT_SECRET,
-            {
-                expiresIn:"7d"
-            }
-        );
+        {
+            expiresIn: "7d"
+        });
         res.status(200).json({
             success:true,
             message:"Login Successful",
             token,
-            user:{
-                id:user._id,
-                name:user.name,
-                email:user.email,
-            }
+        user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            department: user.department
+        }
         });
     }catch(error){
         res.status(500).json({

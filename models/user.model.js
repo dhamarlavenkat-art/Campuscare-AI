@@ -27,8 +27,25 @@ resetOTPExpire: {
 },
     role:{
         type:String,
-        enum:["student","Admin"],
+        enum:["student","admin"],
         default:"student"
+    },
+    department: {
+      type: String,
+      enum: [
+        "Administration",
+        "IT",
+        "Library",
+        "Hostel",
+        "Transport",
+        "Examination",
+        "Maintenance",
+        "Accounts",
+        "Sports",
+        "Placement",
+        "Security",
+      ],
+      default: null,
     },
 },
     {
