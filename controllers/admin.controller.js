@@ -1,9 +1,8 @@
 const Complaint = require("../models/complaint.model");
 
-// Get all complaints
+// Get complaints only for the logged-in admin's department
 const getAllComplaints = async (req, res) => {
     try {
-
         const {
             status,
             category,
@@ -14,7 +13,13 @@ const getAllComplaints = async (req, res) => {
             limit = 10
         } = req.query;
 
-        const filter = {};
+        const pageNumber = Number(page);
+        const limitNumber = Number(limit);
+
+        // Main department filter
+        const filter = {
+            department: req.user.department
+        };
 
         // Search
         if (search) {
@@ -30,11 +35,17 @@ const getAllComplaints = async (req, res) => {
                         $regex: search,
                         $options: "i"
                     }
+                },
+                {
+                    summary: {
+                        $regex: search,
+                        $options: "i"
+                    }
                 }
             ];
         }
 
-        // Filters
+        // Additional filters
         if (status) {
             filter.status = status;
         }
@@ -48,49 +59,38 @@ const getAllComplaints = async (req, res) => {
         }
 
         // Sorting
-        const sortOption = {};
+        const sortOption = {
+            createdAt: sort === "oldest" ? 1 : -1
+        };
 
-        if (sort === "newest") {
-            sortOption.createdAt = -1;
-        } else if (sort === "oldest") {
-            sortOption.createdAt = 1;
-        } else {
-            // Default sorting
-            sortOption.createdAt = -1;
-        }
-
-        // Fetch complaints
         const complaints = await Complaint.find(filter)
             .populate("createdBy", "name email")
             .sort(sortOption)
-            .skip((page - 1) * limit)
-            .limit(Number(limit));
+            .skip((pageNumber - 1) * limitNumber)
+            .limit(limitNumber);
 
         const total = await Complaint.countDocuments(filter);
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
+            department: req.user.department,
             total,
-            currentPage: Number(page),
-            totalPages: Math.ceil(total / Number(limit)),
+            currentPage: pageNumber,
+            totalPages: Math.ceil(total / limitNumber),
             data: complaints
         });
-
     } catch (error) {
-
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: error.message
         });
-
     }
 };
 
-// Update complaint status
+// Update complaint status only inside admin's department
 const updateComplaintStatus = async (req, res) => {
     try {
-
-        const {status,adminRemark} = req.body;
+        const { status, adminRemark } = req.body;
 
         const validStatus = [
             "Pending",
@@ -106,75 +106,86 @@ const updateComplaintStatus = async (req, res) => {
             });
         }
 
-        const complaint = await Complaint.findById(req.params.id);
+        // Find complaint only if it belongs to this admin's department
+        const complaint = await Complaint.findOne({
+            _id: req.params.id,
+            department: req.user.department
+        });
 
         if (!complaint) {
             return res.status(404).json({
                 success: false,
-                message: "Complaint Not Found"
+                message: "Complaint not found in your department"
             });
         }
 
         complaint.status = status;
-        if (adminRemark) {
-            complaint.adminRemark = adminRemark;
-        }
+        complaint.adminRemark = adminRemark || "";
+
         complaint.history.push({
             action: "Status Updated",
-            status: status,
+            status,
             remark: adminRemark || "",
             updatedBy: "Admin"
-});
+        });
 
         await complaint.save();
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
             message: "Complaint Status Updated",
             data: complaint
         });
-
     } catch (error) {
-
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: error.message
         });
-
     }
 };
 
+// Get dashboard stats only for admin's department
 const getDashboardStats = async (req, res) => {
     try {
+        const department = req.user.department;
 
-        const totalComplaints = await Complaint.countDocuments();
+        const totalComplaints = await Complaint.countDocuments({
+            department
+        });
 
         const pending = await Complaint.countDocuments({
+            department,
             status: "Pending"
         });
 
         const inProgress = await Complaint.countDocuments({
+            department,
             status: "In Progress"
         });
 
         const resolved = await Complaint.countDocuments({
+            department,
             status: "Resolved"
         });
 
         const rejected = await Complaint.countDocuments({
+            department,
             status: "Rejected"
         });
 
         const highPriority = await Complaint.countDocuments({
+            department,
             priority: "High"
         });
 
         const anonymous = await Complaint.countDocuments({
+            department,
             anonymous: true
         });
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
+            department,
             data: {
                 totalComplaints,
                 pending,
@@ -185,18 +196,13 @@ const getDashboardStats = async (req, res) => {
                 anonymous
             }
         });
-
     } catch (error) {
-
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
             message: error.message
         });
-
     }
 };
-
-
 
 module.exports = {
     getAllComplaints,
