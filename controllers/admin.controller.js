@@ -17,9 +17,14 @@ const getAllComplaints = async (req, res) => {
         const limitNumber = Number(limit);
 
         // Main department filter
-        const filter = {
-            department: req.user.department
-        };
+        const department = req.user.department?.trim();
+
+const filter = {
+    department: {
+        $regex: `^${department}$`,
+        $options: "i"
+    }
+};
 
         // Search
         if (search) {
@@ -86,6 +91,31 @@ const getAllComplaints = async (req, res) => {
         });
     }
 };
+const getAdminComplaintById = async (req, res) => {
+    try {
+        const complaint = await Complaint.findOne({
+            _id: req.params.id,
+            department: req.user.department
+        }).populate("createdBy", "name email");
+
+        if (!complaint) {
+            return res.status(404).json({
+                success: false,
+                message: "Complaint not found in your department"
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            data: complaint
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
 
 // Update complaint status only inside admin's department
 const updateComplaintStatus = async (req, res) => {
@@ -108,9 +138,12 @@ const updateComplaintStatus = async (req, res) => {
 
         // Find complaint only if it belongs to this admin's department
         const complaint = await Complaint.findOne({
-            _id: req.params.id,
-            department: req.user.department
-        });
+    _id: req.params.id,
+    department: {
+        $regex: `^${req.user.department.trim()}$`,
+        $options: "i"
+    }
+});
 
         if (!complaint) {
             return res.status(404).json({
@@ -143,43 +176,48 @@ const updateComplaintStatus = async (req, res) => {
         });
     }
 };
-
-// Get dashboard stats only for admin's department
 const getDashboardStats = async (req, res) => {
     try {
-        const department = req.user.department;
+        const department = req.user.department?.trim();
 
-        const totalComplaints = await Complaint.countDocuments({
-            department
-        });
+        const departmentFilter = {
+            department: {
+                $regex: `^${department}$`,
+                $options: "i"
+            }
+        };
+
+        const totalComplaints = await Complaint.countDocuments(
+            departmentFilter
+        );
 
         const pending = await Complaint.countDocuments({
-            department,
+            ...departmentFilter,
             status: "Pending"
         });
 
         const inProgress = await Complaint.countDocuments({
-            department,
+            ...departmentFilter,
             status: "In Progress"
         });
 
         const resolved = await Complaint.countDocuments({
-            department,
+            ...departmentFilter,
             status: "Resolved"
         });
 
         const rejected = await Complaint.countDocuments({
-            department,
+            ...departmentFilter,
             status: "Rejected"
         });
 
         const highPriority = await Complaint.countDocuments({
-            department,
+            ...departmentFilter,
             priority: "High"
         });
 
         const anonymous = await Complaint.countDocuments({
-            department,
+            ...departmentFilter,
             anonymous: true
         });
 
@@ -204,8 +242,10 @@ const getDashboardStats = async (req, res) => {
     }
 };
 
+
 module.exports = {
     getAllComplaints,
+    getAdminComplaintById,
     updateComplaintStatus,
     getDashboardStats
 };
