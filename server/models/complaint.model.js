@@ -21,6 +21,7 @@ const complaintSchema = new mongoose.Schema(
     "Security",
     "Library",
     "Cafeteria",
+    "Sports",
     "Other"
 ],
             default:"Other"

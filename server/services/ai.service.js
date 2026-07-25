@@ -149,13 +149,12 @@ Department routing examples:
 - Hostel rooms, hostel food and hostel water -> Hostel
 - Books, library cards and reading rooms -> Library
 - Buses and college transport -> Transport
-- Exams, marks, hall tickets and timetables -> Examination
 - Plumbing, electricity and building repairs -> Maintenance
 - Fees, payments and scholarships -> Accounts
 - Sports equipment and facilities -> Sports
 - Jobs, internships and campus recruitment -> Placement
 - Theft, harassment and safety issues -> Security
-- General college matters -> Administration
+- General college matters and facult related issues-> Administration
 
 Important rules:
 
