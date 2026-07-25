@@ -21,12 +21,10 @@ AI-powered Complaint Management System for educational institutions, built on th
 - Axios instance with auth interceptor + auto-logout on 401
 - Pages: Login, Register, Student Dashboard, Submit Complaint (with image upload + anonymous toggle), Admin Dashboard (status management + basic analytics cards)
 
-## Not yet built (next steps)
 - AI integration layer (categorization, priority, summary, department recommendation, solution suggestion, chat assistant)
 - Complaint detail page (currently only list views exist)
 - Department management, admin user management
-- Full analytics dashboard / charts
-- Tests
+
 
 ## Getting started
 
