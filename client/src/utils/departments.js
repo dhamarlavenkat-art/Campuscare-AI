@@ -4,7 +4,6 @@ const departments = [
     "Library",
     "Hostel",
     "Transport",
-    "Examination",
     "Maintenance",
     "Accounts",
     "Sports",
