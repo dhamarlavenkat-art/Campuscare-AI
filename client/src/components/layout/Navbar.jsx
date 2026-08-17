@@ -32,7 +32,9 @@ const Navbar = ({ onMenuClick }) => {
                     <h3>Welcome, {user?.name}</h3>
 
                     <p>
-                        {user?.role === "admin"
+                        {user?.role === "super_admin"
+                            ? "College-wide administration"
+                            : user?.role === "admin"
                             ? `${user.department} Department`
                             : "Manage your complaints"}
                     </p>
@@ -47,7 +49,9 @@ const Navbar = ({ onMenuClick }) => {
                         <strong>{user?.name}</strong>
 
                         <span>
-                            {user?.role === "admin"
+                            {user?.role === "super_admin"
+                                ? "Super Administrator"
+                                : user?.role === "admin"
                                 ? "Administrator"
                                 : "Student"}
                         </span>

@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+    Bar,
+    BarChart,
     CartesianGrid,
     Legend,
     Line,
@@ -16,10 +18,15 @@ import { getInfrastructureOptions } from "../../services/infrastructure.service"
 
 const initialFilters = {
     period: "thisMonth", startDate: "", endDate: "", building: "",
-    floor: "", room: "", category: "", priority: "", assetType: ""
+    floor: "", room: "", department: "", category: "", priority: "", assetType: ""
 };
 
-const AdminAnalytics = () => {
+const departments = [
+    "Administration", "IT", "Library", "Hostel", "Transport", "Examination",
+    "Maintenance", "Accounts", "Sports", "Placement", "Security"
+];
+
+const AdminAnalytics = ({ collegeWide = false }) => {
     const [filters, setFilters] = useState(initialFilters);
     const [rooms, setRooms] = useState([]);
     const [analytics, setAnalytics] = useState(null);
@@ -79,13 +86,17 @@ const AdminAnalytics = () => {
 
     const summary = analytics?.summary || {};
     const trend = analytics?.trend || [];
+    const categoryBreakdown = analytics?.categoryBreakdown || [];
+    const departmentBreakdown = analytics?.departmentBreakdown || [];
 
     return (
         <DashboardLayout>
             <section className="page-header">
                 <div>
-                    <h1>Complaint Analytics</h1>
-                    <p>Explore how complaints are received, resolved and rejected over time.</p>
+                    <h1>{collegeWide ? "College Analytics" : "Complaint Analytics"}</h1>
+                    <p>{collegeWide
+                        ? "Monitor complaint types and resolution performance across every department."
+                        : "Explore how complaints are received, resolved and rejected over time."}</p>
                 </div>
             </section>
 
@@ -97,6 +108,7 @@ const AdminAnalytics = () => {
                     <label>Floor<select name="floor" value={filters.floor} onChange={handleChange}><option value="">All floors</option>{floors.map((floor) => <option key={floor} value={floor}>Floor {floor}</option>)}</select></label>
                     <label>Room<select name="room" value={filters.room} onChange={handleChange}><option value="">All rooms</option>{filteredRooms.map((room) => <option key={room._id} value={room._id}>Room {room.roomNumber}</option>)}</select></label>
                     <label>Asset type<select name="assetType" value={filters.assetType} onChange={handleChange}><option value="">All assets</option>{assetTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+                    {collegeWide && <label>Department<select name="department" value={filters.department} onChange={handleChange}><option value="">All departments</option>{departments.map((value) => <option key={value}>{value}</option>)}</select></label>}
                     <label>Category<select name="category" value={filters.category} onChange={handleChange}><option value="">All categories</option>{["Academic", "Maintenance", "Hostel", "IT", "Transport", "Security", "Library", "Cafeteria", "Sports", "Other"].map((value) => <option key={value}>{value}</option>)}</select></label>
                     <label>Priority<select name="priority" value={filters.priority} onChange={handleChange}><option value="">All priorities</option><option>Low</option><option>Medium</option><option>High</option></select></label>
                 </div>
@@ -111,7 +123,9 @@ const AdminAnalytics = () => {
                     <article className="stat-card"><span>Rejected in period</span><strong>{summary.rejected}</strong></article>
                     <article className="stat-card"><span>Currently pending</span><strong>{summary.pending}</strong></article>
                     <article className="stat-card"><span>Currently in progress</span><strong>{summary.inProgress}</strong></article>
+                    <article className="stat-card"><span>Received and resolved</span><strong>{summary.resolvedFromReceived}</strong></article>
                     <article className="stat-card"><span>Resolution rate</span><strong>{summary.resolutionRate}%</strong></article>
+                    <article className="stat-card"><span>Average resolution</span><strong>{summary.averageResolutionHours}h</strong></article>
                 </section>
 
                 <section className="analytics-trend-card">
@@ -132,6 +146,48 @@ const AdminAnalytics = () => {
                             </LineChart>
                         </ResponsiveContainer>
                     </div>
+                </section>
+
+                <section className="analytics-breakdown-grid">
+                    <article className="analytics-trend-card">
+                        <div className="section-heading-row">
+                            <div><h2>Complaint types received</h2><p>Categories of complaints submitted in the selected period.</p></div>
+                        </div>
+                        {categoryBreakdown.length ? (
+                            <div className="analytics-bar-chart" role="img" aria-label="Bar chart showing complaints by category">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={categoryBreakdown} layout="vertical" margin={{ top: 5, right: 18, left: 18, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                        <XAxis type="number" allowDecimals={false} />
+                                        <YAxis type="category" dataKey="name" width={92} />
+                                        <Tooltip />
+                                        <Bar dataKey="count" name="Complaints" fill="#4f46e5" radius={[0, 5, 5, 0]} />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        ) : <div className="empty-state compact"><p>No complaint types in this period.</p></div>}
+                    </article>
+
+                    {collegeWide && (
+                        <article className="analytics-trend-card">
+                            <div className="section-heading-row">
+                                <div><h2>Complaints by department</h2><p>Where this period's complaints were routed.</p></div>
+                            </div>
+                            {departmentBreakdown.length ? (
+                                <div className="analytics-bar-chart" role="img" aria-label="Bar chart showing complaints by department">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <BarChart data={departmentBreakdown} layout="vertical" margin={{ top: 5, right: 18, left: 18, bottom: 5 }}>
+                                            <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                            <XAxis type="number" allowDecimals={false} />
+                                            <YAxis type="category" dataKey="name" width={92} />
+                                            <Tooltip />
+                                            <Bar dataKey="count" name="Complaints" fill="#7c3aed" radius={[0, 5, 5, 0]} />
+                                        </BarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            ) : <div className="empty-state compact"><p>No department data in this period.</p></div>}
+                        </article>
+                    )}
                 </section>
             </>}
         </DashboardLayout>

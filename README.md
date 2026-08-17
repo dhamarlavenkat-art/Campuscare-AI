@@ -88,6 +88,21 @@ The complaint is then stored in MongoDB and made available only to the administr
 - Optional expert-level AI suggestions generated only when requested by the admin
 - Responsive administrator dashboard
 
+### Super Administrator Features
+
+- College-wide infrastructure ownership
+- Downloadable Excel infrastructure template
+- XLSX and CSV room-and-asset import
+- Validation preview before any database changes
+- New-room and existing-room detection
+- AI-assisted blueprint reading from PNG/JPG floor plans and text-based PDFs
+- Editable room review table before publishing
+- Super Admin-only import and publish endpoints
+- Separate Super Admin navigation and landing page
+- Separate college-wide analytics section
+- Monthly complaint-type and department breakdown charts
+- Cohort-based resolution rate and average resolution time
+
 ### AI Features
 
 CampusCare AI uses the Groq API with the Llama model to analyse complaints.
@@ -131,6 +146,12 @@ Administrators can create spaces such as classrooms, computer labs, science labs
 Students link a complaint to a room and optional asset. They specify how many units are affected. The infrastructure page then calculates the currently reported affected quantity from unresolved complaints. Resolved and rejected complaints are automatically excluded from the active affected count.
 
 The project includes an optional sample initializer for Main Block, 3rd Floor and Rooms 301–320.
+
+### Bulk Infrastructure and Blueprint Import
+
+The Super Admin can download the Excel template, enter buildings, floors, rooms, departments and asset quantities, then upload it for validation. Alternatively, a PNG/JPG blueprint or text-based PDF can be analyzed by AI to create a reviewable room draft.
+
+Uploading never changes infrastructure immediately. The server stores a temporary draft, identifies rows that create or update rooms and reports invalid rows. Publishing happens only after explicit confirmation. Use the spreadsheet for accurate asset quantities and the blueprint reader for room labels and room types.
 
 ---
 
@@ -489,6 +510,9 @@ export default api;
 | `MONGO_URL` | MongoDB connection URL |
 | `JWT_SECRET` | Secret used to sign JWT tokens |
 | `GROQ_API_KEY` | Groq API key used for AI analysis |
+| `SUPER_ADMIN_NAME` | Name used by the Super Admin setup script |
+| `SUPER_ADMIN_EMAIL` | Login email used by the Super Admin setup script |
+| `SUPER_ADMIN_PASSWORD` | Initial password used by the Super Admin setup script |
 
 Example:
 
@@ -497,7 +521,19 @@ PORT=5000
 MONGO_URL=mongodb://127.0.0.1:27017/campuscare_ai
 JWT_SECRET=my_secure_jwt_secret
 GROQ_API_KEY=my_groq_api_key
+SUPER_ADMIN_NAME=Campus Manager
+SUPER_ADMIN_EMAIL=superadmin@college.edu
+SUPER_ADMIN_PASSWORD=replace_with_a_strong_password
 ```
+
+Create or promote the Super Admin after configuring the server environment:
+
+```bash
+cd server
+npm run create-super-admin
+```
+
+The public registration page cannot create a Super Admin account.
 
 ---
 
@@ -590,6 +626,19 @@ An administrator can:
 - Open complaint details
 - Update complaint status
 - Add administrator remarks
+
+### Super Admin
+
+A Super Admin can:
+
+- Import the complete college infrastructure
+- Ask AI to prepare a draft from a floor plan
+- Review, correct and publish detected rooms
+- Create new rooms and update existing room inventories
+- View college rooms and linked complaints across departments
+- View received, resolved, rejected, pending and in-progress totals across the college
+- Compare complaint categories and departments for any selected period
+- Monitor cohort resolution rate and average resolution time
 
 ---
 
@@ -849,7 +898,7 @@ Supported filters include `period`, `startDate`, `endDate`, `building`, `floor`,
 
 ### Infrastructure Routes
 
-All infrastructure routes require authentication. Modification routes also require the admin role.
+All infrastructure routes require authentication. Modification routes require an administrator role, while import routes require the Super Admin role.
 
 ```http
 GET   /api/infrastructure/options
@@ -858,6 +907,10 @@ GET   /api/infrastructure/rooms/:id
 POST  /api/infrastructure/rooms
 PATCH /api/infrastructure/rooms/:roomId/assets/:assetId
 POST  /api/infrastructure/seed
+GET   /api/infrastructure/imports/template
+POST  /api/infrastructure/imports/spreadsheet/preview
+POST  /api/infrastructure/imports/blueprint/preview
+POST  /api/infrastructure/imports/:id/publish
 ```
 
 ---

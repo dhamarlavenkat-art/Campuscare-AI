@@ -330,7 +330,12 @@ const getAnalytics = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid date range" });
         }
 
-        const filter = buildDepartmentFilter(req.user.department);
+        const filter = req.user.role === "super_admin"
+            ? {}
+            : buildDepartmentFilter(req.user.department);
+        if (req.user.role === "super_admin" && req.query.department) {
+            Object.assign(filter, buildDepartmentFilter(req.query.department));
+        }
         addInfrastructureFilters(filter, req.query);
         if (req.query.category) filter.category = req.query.category;
         if (req.query.priority) filter.priority = req.query.priority;
@@ -353,6 +358,29 @@ const getAnalytics = async (req, res) => {
         const rejected = complaints.filter((complaint) => eventInRange(complaint, "Rejected"));
         const pending = complaints.filter((complaint) => complaint.status === "Pending");
         const inProgress = complaints.filter((complaint) => complaint.status === "In Progress");
+        const resolvedFromReceived = received.filter((complaint) =>
+            complaint.history?.some((entry) => {
+                const date = new Date(entry.date);
+                return entry.status === "Resolved" && date >= complaint.createdAt && date <= endDate;
+            })
+        );
+
+        const resolutionHours = complaints.flatMap((complaint) => {
+            const resolvedEntry = complaint.history
+                ?.filter((entry) => {
+                    const date = new Date(entry.date);
+                    return entry.status === "Resolved" && date >= startDate && date <= endDate;
+                })
+                .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+
+            if (!resolvedEntry) return [];
+            const hours = (new Date(resolvedEntry.date) - complaint.createdAt) / (1000 * 60 * 60);
+            return hours >= 0 ? [hours] : [];
+        });
+
+        const averageResolutionHours = resolutionHours.length
+            ? Number((resolutionHours.reduce((sum, hours) => sum + hours, 0) / resolutionHours.length).toFixed(1))
+            : 0;
 
         const reportComplaints = complaints.filter((complaint) => {
             if (req.query.status === "Resolved") return eventInRange(complaint, "Resolved");
@@ -374,6 +402,20 @@ const getAnalytics = async (req, res) => {
                 count: complaints.filter((complaint) => complaint.status === status).length
             })
         );
+
+        const countBy = (items, field) => {
+            const counts = new Map();
+            items.forEach((item) => {
+                const key = item[field] || "Other";
+                counts.set(key, (counts.get(key) || 0) + 1);
+            });
+            return [...counts.entries()]
+                .map(([name, count]) => ({ name, count }))
+                .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+        };
+
+        const categoryBreakdown = countBy(received, "category");
+        const departmentBreakdown = countBy(received, "department");
 
         const dateKey = (value) => {
             const date = new Date(value);
@@ -434,11 +476,15 @@ const getAnalytics = async (req, res) => {
                     rejected: rejected.length,
                     pending: pending.length,
                     inProgress: inProgress.length,
+                    resolvedFromReceived: resolvedFromReceived.length,
+                    averageResolutionHours,
                     resolutionRate: received.length
-                        ? Number(((resolved.length / received.length) * 100).toFixed(1))
+                        ? Number(((resolvedFromReceived.length / received.length) * 100).toFixed(1))
                         : 0
                 },
                 statusBreakdown,
+                categoryBreakdown,
+                departmentBreakdown,
                 trend: [...trendMap.values()],
                 complaints: reportComplaints.slice(0, 100)
             }

@@ -37,7 +37,9 @@ const Login = () => {
 
             login(response.user, response.token);
 
-            if (response.user.role === "admin") {
+            if (response.user.role === "super_admin") {
+                navigate("/super-admin/infrastructure-import");
+            } else if (response.user.role === "admin") {
                 navigate("/admin/dashboard");
             } else {
                 navigate("/student/dashboard");

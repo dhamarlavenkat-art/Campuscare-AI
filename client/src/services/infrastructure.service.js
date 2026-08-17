@@ -32,3 +32,27 @@ export const updateInfrastructureAsset = async (roomId, assetId, data) => {
     );
     return response.data;
 };
+
+export const downloadInfrastructureTemplate = async () => {
+    const response = await api.get("/infrastructure/imports/template", { responseType: "blob" });
+    return response.data;
+};
+
+const uploadImportFile = async (url, file, fields = {}) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
+    const response = await api.post(url, formData);
+    return response.data;
+};
+
+export const previewInfrastructureSpreadsheet = (file) =>
+    uploadImportFile("/infrastructure/imports/spreadsheet/preview", file);
+
+export const previewInfrastructureBlueprint = (file, fields = {}) =>
+    uploadImportFile("/infrastructure/imports/blueprint/preview", file, fields);
+
+export const publishInfrastructureImport = async (importId, data) => {
+    const response = await api.post(`/infrastructure/imports/${importId}/publish`, data);
+    return response.data;
+};

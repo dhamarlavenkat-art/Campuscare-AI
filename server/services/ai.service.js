@@ -516,7 +516,92 @@ Rules:
     }
 };
 
+const extractInfrastructureFromBlueprint = async ({ buffer, mimeType, text }) => {
+    const prompt = `
+You analyze college infrastructure documents for a complaint management system.
+Extract only rooms that are explicitly visible or written in the supplied blueprint.
+Never invent room numbers, assets, departments, capacities, buildings or floors.
+
+Return ONLY valid JSON in this exact shape:
+{
+  "rooms": [
+    {
+      "building": "",
+      "floor": 0,
+      "roomNumber": "",
+      "roomType": "Classroom",
+      "department": "General",
+      "capacity": 0,
+      "assets": [{ "type": "Fan", "quantity": 1 }]
+    }
+  ],
+  "notes": []
+}
+
+Rules:
+- Use 0 for ground floor.
+- If building or floor is absent, leave building empty or floor null so a human can correct it.
+- Include assets only when their type and quantity are explicitly stated.
+- Common room types include Classroom, Computer Lab, Science Lab, Server Room, Library, Office, Staff Room, Seminar Hall and Auditorium.
+- Use General when no responsible department is stated.
+- Notes must briefly identify missing or uncertain information.
+- Do not include markdown.
+`;
+
+    const content = text
+        ? `${prompt}\nDocument text:\n${text.slice(0, 60000)}`
+        : [
+              { type: "text", text: prompt },
+              {
+                  type: "image_url",
+                  image_url: {
+                      url: `data:${mimeType};base64,${buffer.toString("base64")}`
+                  }
+              }
+          ];
+
+    try {
+        const response = await axios.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+                model: "qwen/qwen3.6-27b",
+                messages: [{ role: "user", content }],
+                temperature: 0.1,
+                // Keep the image tokens plus completion below Groq's entry-tier TPM limit.
+                // A 3K completion is sufficient for a floor-plan room draft.
+                max_completion_tokens: 3000,
+                response_format: { type: "json_object" }
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+                    "Content-Type": "application/json"
+                },
+                timeout: 45000
+            }
+        );
+
+        const raw = response.data?.choices?.[0]?.message?.content;
+        if (!raw) throw new Error("AI returned an empty blueprint response");
+
+        const parsed = JSON.parse(raw.replace(/```json/gi, "").replace(/```/g, "").trim());
+        return {
+            rooms: Array.isArray(parsed.rooms) ? parsed.rooms : [],
+            notes: Array.isArray(parsed.notes)
+                ? parsed.notes.filter((note) => typeof note === "string").slice(0, 20)
+                : []
+        };
+    } catch (error) {
+        console.log("Blueprint extraction failed:", error.response?.data || error.message);
+        if (error.response?.data?.error?.code === "rate_limit_exceeded") {
+            throw new Error("The AI request limit was reached. Try again shortly or upload a smaller blueprint image.");
+        }
+        throw new Error("AI could not read this blueprint. Try a clearer image or the Excel template.");
+    }
+};
+
 module.exports = {
     analyzeComplaint,
-    generateAdminSuggestions
+    generateAdminSuggestions,
+    extractInfrastructureFromBlueprint
 };

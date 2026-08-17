@@ -3,6 +3,14 @@ const Room = require("../models/room.model");
 const Complaint = require("../models/complaint.model");
 
 const normalizeText = (value) => value?.trim();
+const complaintDepartmentFilter = (user) => user.role === "super_admin"
+    ? {}
+    : {
+          department: {
+              $regex: `^${user.department.trim()}$`,
+              $options: "i"
+          }
+      };
 
 const getInfrastructureOptions = async (req, res) => {
     try {
@@ -39,10 +47,7 @@ const getRooms = async (req, res) => {
             {
                 $match: {
                     "location.room": { $in: roomIds },
-                    department: {
-                        $regex: `^${req.user.department.trim()}$`,
-                        $options: "i"
-                    },
+                    ...complaintDepartmentFilter(req.user),
                     status: { $in: ["Pending", "In Progress"] }
                 }
             },
@@ -83,10 +88,7 @@ const getRoomDetails = async (req, res) => {
 
         const complaintFilter = {
             "location.room": room._id,
-            department: {
-                $regex: `^${req.user.department.trim()}$`,
-                $options: "i"
-            }
+            ...complaintDepartmentFilter(req.user)
         };
 
         if (req.query.status) {
@@ -106,10 +108,7 @@ const getRoomDetails = async (req, res) => {
                 $match: {
                     "location.room": room._id,
                     "location.assetId": { $ne: null },
-                    department: {
-                        $regex: `^${req.user.department.trim()}$`,
-                        $options: "i"
-                    },
+                    ...complaintDepartmentFilter(req.user),
                     status: { $in: ["Pending", "In Progress"] }
                 }
             },
