@@ -1,20 +1,166 @@
 const { analyzeComplaint } = require("../services/ai.service");
 const Complaint = require("../models/complaint.model");
+const Room = require("../models/room.model");
+const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+
+const complaintContentHash = (title, description) =>
+    crypto
+        .createHash("sha256")
+        .update(`${title.trim()}\n${description.trim()}`)
+        .digest("hex");
+
+const analyzeComplaintPreview = async (req, res) => {
+    try {
+        const { title, description } = req.body;
+        const aiResult = await analyzeComplaint(title, description);
+        const troubleshooting = aiResult.troubleshooting.length
+            ? aiResult.troubleshooting.slice(0, 4)
+            : [
+                  "Confirm that the issue is still present before submitting the complaint.",
+                  "Check whether the same issue is affecting other students nearby."
+              ];
+
+        const analysis = { ...aiResult, troubleshooting };
+        const analysisToken = jwt.sign(
+            {
+                type: "complaint-analysis",
+                userId: req.user.id,
+                contentHash: complaintContentHash(title, description),
+                analysis
+            },
+            process.env.JWT_SECRET,
+            { expiresIn: "10m" }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Review and confirm every troubleshooting step before submitting.",
+            data: {
+                summary: analysis.summary,
+                troubleshooting,
+                analysisToken
+            }
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
 
 // CREATE COMPLAINT
 const createComplaint = async (req, res) => {
     try {
-        const { title, description, anonymous } = req.body;
+        const {
+            title,
+            description,
+            anonymous,
+            roomId,
+            assetId,
+            affectedQuantity,
+            analysisToken,
+            troubleshootingAcknowledged,
+            confirmedTroubleshooting
+        } = req.body;
 
-        // AI analyzes the complaint
-        const aiResult = await analyzeComplaint(title, description);
+        if (troubleshootingAcknowledged !== "true" && troubleshootingAcknowledged !== true) {
+            return res.status(400).json({
+                success: false,
+                message: "Confirm every troubleshooting step before submitting"
+            });
+        }
+
+        let aiResult;
+
+        try {
+            const decoded = jwt.verify(analysisToken, process.env.JWT_SECRET);
+            const validAnalysis =
+                decoded.type === "complaint-analysis" &&
+                decoded.userId === req.user.id &&
+                decoded.contentHash === complaintContentHash(title, description);
+
+            if (!validAnalysis) throw new Error("Analysis does not match complaint");
+            aiResult = decoded.analysis;
+            aiResult.troubleshooting = (aiResult.troubleshooting || []).slice(0, 4);
+        } catch {
+            return res.status(400).json({
+                success: false,
+                message: "Complaint analysis expired or the complaint changed. Analyze it again."
+            });
+        }
+
+        let confirmedSteps;
+
+        try {
+            confirmedSteps = JSON.parse(confirmedTroubleshooting);
+        } catch {
+            confirmedSteps = [];
+        }
+
+        const allStepsConfirmed =
+            Array.isArray(confirmedSteps) &&
+            confirmedSteps.length === aiResult.troubleshooting.length &&
+            confirmedSteps.every(
+                (step, index) => step === aiResult.troubleshooting[index]
+            );
+
+        if (!allStepsConfirmed) {
+            return res.status(400).json({
+                success: false,
+                message: "Every troubleshooting step must be confirmed before submitting"
+            });
+        }
+
+        let location = undefined;
+
+        if (roomId) {
+            const room = await Room.findOne({ _id: roomId, active: true });
+
+            if (!room) {
+                return res.status(400).json({
+                    success: false,
+                    message: "The selected room is not available"
+                });
+            }
+
+            const asset = assetId ? room.assets.id(assetId) : null;
+
+            if (assetId && !asset) {
+                return res.status(400).json({
+                    success: false,
+                    message: "The selected asset does not belong to this room"
+                });
+            }
+
+            const affected = asset ? Number(affectedQuantity) || 1 : 1;
+
+            if (asset && (affected < 1 || affected > asset.quantity)) {
+                return res.status(400).json({
+                    success: false,
+                    message: `Affected quantity must be between 1 and ${asset.quantity}`
+                });
+            }
+
+            location = {
+                room: room._id,
+                assetId: asset?._id || null,
+                building: room.building,
+                floor: room.floor,
+                roomNumber: room.roomNumber,
+                assetType: asset?.type || "",
+                assetName: asset?.name || "",
+                affectedQuantity: affected
+            };
+        }
 
         /*
          Check whether a similar unresolved complaint already exists.
          If found, do not create another complaint.
          The frontend can show the existing complaint and a support button.
         */
-        const similarComplaint = await Complaint.findOne({
+        const duplicateFilter = {
             summary: {
                 $regex: aiResult.summary,
                 $options: "i"
@@ -22,7 +168,13 @@ const createComplaint = async (req, res) => {
             status: {
                 $nin: ["Resolved", "Rejected"]
             }
-        });
+        };
+
+        if (location?.room) {
+            duplicateFilter["location.room"] = location.room;
+        }
+
+        const similarComplaint = await Complaint.findOne(duplicateFilter);
 
         if (similarComplaint) {
             const alreadySupported = similarComplaint.supporters?.some(
@@ -66,6 +218,7 @@ const createComplaint = async (req, res) => {
                 anonymous === true ||
                 anonymous === "true",
             image,
+            location,
             createdBy: req.user.id,
 
             // Complaint creator automatically supports their complaint
@@ -399,6 +552,7 @@ const supportComplaint = async (req, res) => {
 };
 
 module.exports = {
+    analyzeComplaintPreview,
     createComplaint,
     getMyComplaints,
     getComplaintById,

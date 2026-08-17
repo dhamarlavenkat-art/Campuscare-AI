@@ -3,7 +3,6 @@ import { Link } from "react-router-dom";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import useAuth from "../../hooks/useAuth";
-
 import {
     getAdminDashboardStats,
     getAdminComplaints
@@ -106,55 +105,41 @@ const AdminDashboard = () => {
             ) : (
                 <>
                     <section className="stats-grid">
-                        <article className="stat-card">
-                            <span>Total Complaints</span>
-                            <strong>
-                                {stats.totalComplaints}
-                            </strong>
-                        </article>
+    <article className="stat-card">
+        <span>Total Complaints</span>
+        <strong>{stats.totalComplaints}</strong>
+    </article>
 
-                        <article className="stat-card">
-                            <span>Pending</span>
-                            <strong>
-                                {stats.pending}
-                            </strong>
-                        </article>
+    <article className="stat-card">
+        <span>Pending</span>
+        <strong>{stats.pending}</strong>
+    </article>
 
-                        <article className="stat-card">
-                            <span>In Progress</span>
-                            <strong>
-                                {stats.inProgress}
-                            </strong>
-                        </article>
+    <article className="stat-card">
+        <span>In Progress</span>
+        <strong>{stats.inProgress}</strong>
+    </article>
 
-                        <article className="stat-card">
-                            <span>Resolved</span>
-                            <strong>
-                                {stats.resolved}
-                            </strong>
-                        </article>
+    <article className="stat-card">
+        <span>Resolved</span>
+        <strong>{stats.resolved}</strong>
+    </article>
 
-                        <article className="stat-card">
-                            <span>Rejected</span>
-                            <strong>
-                                {stats.rejected}
-                            </strong>
-                        </article>
+    <article className="stat-card">
+        <span>Rejected</span>
+        <strong>{stats.rejected}</strong>
+    </article>
 
-                        <article className="stat-card">
-                            <span>High Priority</span>
-                            <strong>
-                                {stats.highPriority}
-                            </strong>
-                        </article>
+    <article className="stat-card">
+        <span>High Priority</span>
+        <strong>{stats.highPriority}</strong>
+    </article>
 
-                        <article className="stat-card">
-                            <span>Anonymous</span>
-                            <strong>
-                                {stats.anonymous}
-                            </strong>
-                        </article>
-                    </section>
+    <article className="stat-card">
+        <span>Anonymous</span>
+        <strong>{stats.anonymous}</strong>
+    </article>
+</section>
 
                     <section className="dashboard-section">
                         <div className="section-heading-row">

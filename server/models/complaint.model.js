@@ -61,6 +61,46 @@ const complaintSchema = new mongoose.Schema(
             type:String,
             default:""
         },
+        location: {
+            room: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Room",
+                default: null
+            },
+            assetId: {
+                type: mongoose.Schema.Types.ObjectId,
+                default: null
+            },
+            building: {
+                type: String,
+                trim: true,
+                default: ""
+            },
+            floor: {
+                type: Number,
+                default: null
+            },
+            roomNumber: {
+                type: String,
+                trim: true,
+                default: ""
+            },
+            assetType: {
+                type: String,
+                trim: true,
+                default: ""
+            },
+            assetName: {
+                type: String,
+                trim: true,
+                default: ""
+            },
+            affectedQuantity: {
+                type: Number,
+                min: 1,
+                default: 1
+            }
+        },
         createdBy:{
             type:mongoose.Schema.Types.ObjectId,
             ref:"User",

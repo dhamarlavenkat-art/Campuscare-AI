@@ -162,6 +162,29 @@ const ComplaintDetails = () => {
                                 ).toLocaleString()}
                             </strong>
                         </div>
+
+                        <div>
+                            <span>Location</span>
+                            <strong>
+                                {complaint.location?.roomNumber
+                                    ? `${complaint.location.building}, Floor ${complaint.location.floor}, Room ${complaint.location.roomNumber}`
+                                    : "Not linked"}
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Asset</span>
+                            <strong>
+                                {complaint.location?.assetName || "Whole room"}
+                            </strong>
+                        </div>
+
+                        {complaint.location?.assetId && (
+                            <div>
+                                <span>Units Affected</span>
+                                <strong>{complaint.location.affectedQuantity || 1}</strong>
+                            </div>
+                        )}
                     </div>
 
                     <div className="details-section">

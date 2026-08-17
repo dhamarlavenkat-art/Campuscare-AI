@@ -1,10 +1,10 @@
 # CampusCare AI
 
-CampusCare AI is an AI-assisted college complaint management system built using the MERN stack.
+CampusCare AI is an AI-assisted college complaint and campus infrastructure management system built using the MERN stack.
 
 The platform allows students to submit campus-related complaints, automatically analyses each complaint using AI, identifies the appropriate department, detects possible duplicate complaints, and routes the issue to the relevant department administrator.
 
-Administrators can view only the complaints assigned to their department, update complaint statuses, add remarks, and monitor department-specific statistics.
+Administrators can view only the complaints assigned to their department, update complaint statuses, manage buildings, floors, rooms and assets, and monitor department-specific analytics and reports.
 
 ---
 
@@ -36,11 +36,15 @@ The complaint is then stored in MongoDB and made available only to the administr
   - Description
   - Optional image
   - Anonymous submission option
+  - Building, floor, room and affected asset
+  - Number of affected asset units
 - AI-powered complaint analysis
 - Automatic department routing
 - Automatic category and priority detection
 - AI-generated complaint summary
-- Troubleshooting suggestions
+- Pre-submission troubleshooting checklist with a maximum of four safe steps
+- Mandatory confirmation of every troubleshooting step before final submission
+- Secure, short-lived signed analysis to prevent submitting changed complaint content
 - Duplicate complaint detection
 - Support an existing similar complaint
 - Prevent repeated support from the same student
@@ -72,6 +76,16 @@ The complaint is then stored in MongoDB and made available only to the administr
 - Add administrator remarks
 - View complaint history
 - Department-specific dashboard statistics
+- Campus infrastructure navigation by building, floor and room
+- Room inventory for fans, lights, projectors, computers, servers and other assets
+- Room and asset-specific complaint lists
+- Complaint counts automatically derived from open student reports
+- Separate interactive Analytics page
+- Interactive received, resolved and rejected complaint trend chart
+- Separate filtered Reports page with CSV export
+- Filters for period, building, floor, room, asset, category, priority and status
+- Historical resolved and rejected calculations based on status-history timestamps
+- Optional expert-level AI suggestions generated only when requested by the admin
 - Responsive administrator dashboard
 
 ### AI Features
@@ -96,16 +110,55 @@ The AI returns structured JSON containing:
 
 The department value is normalised before saving so that it matches the departments assigned to administrators.
 
+AI analysis now happens before final complaint creation. The student receives up to four safe troubleshooting steps and must confirm all of them. The signed analysis remains valid for ten minutes and is reused during final submission, avoiding a second AI request. Administrators do not automatically see student-level troubleshooting; they can request concise expert suggestions when needed.
+
+---
+
+## Campus Infrastructure Module
+
+The infrastructure module represents the campus using the following hierarchy:
+
+```text
+Building
+  └── Floor
+      └── Room / Lab / Server Room / Office
+          └── Assets
+              └── Linked Complaints
+```
+
+Administrators can create spaces such as classrooms, computer labs, science labs, server rooms, offices, seminar halls and auditoriums. For each space, the admin records only the asset type and total quantity. Working or faulty counts are not entered manually.
+
+Students link a complaint to a room and optional asset. They specify how many units are affected. The infrastructure page then calculates the currently reported affected quantity from unresolved complaints. Resolved and rejected complaints are automatically excluded from the active affected count.
+
+The project includes an optional sample initializer for Main Block, 3rd Floor and Rooms 301–320.
+
+---
+
+## Analytics and Reports
+
+Analytics and reports are separate administrator sections:
+
+- **Analytics:** summary metrics and a responsive interactive line chart for received, resolved and rejected complaints.
+- **Reports:** filtered complaint records with CSV export.
+
+Available filters include today, this week, this month, last month, this year, custom dates, building, floor, room, asset type, category, priority and status.
+
+Resolved and rejected totals use the matching entries in complaint history instead of `updatedAt`, preserving accurate historical reporting.
+
 ---
 
 ## Application Workflow
 
 ```text
-Student submits complaint
+Student enters complaint and location
         ↓
-Backend sends complaint to AI
+Student requests AI analysis
         ↓
-AI identifies category, priority and department
+AI identifies category, priority and department and returns up to four troubleshooting steps
+        ↓
+Student confirms every troubleshooting step
+        ↓
+Signed analysis is verified during final submission
         ↓
 System checks for a similar unresolved complaint
         ↓
@@ -133,6 +186,7 @@ Student tracks progress and complaint history
 - React Router DOM
 - Axios
 - Lucide React
+- Recharts
 - CSS
 - Context API
 - Local Storage
@@ -210,7 +264,10 @@ Campuscare-AI/
 │   │   │   └── admin/
 │   │   │       ├── AdminDashboard.jsx
 │   │   │       ├── AdminComplaints.jsx
-│   │   │       └── AdminComplaintDetails.jsx
+│   │   │       ├── AdminComplaintDetails.jsx
+│   │   │       ├── AdminInfrastructure.jsx
+│   │   │       ├── AdminAnalytics.jsx
+│   │   │       └── AdminReports.jsx
 │   │   │
 │   │   ├── routes/
 │   │   │   └── AppRoutes.jsx
@@ -219,7 +276,8 @@ Campuscare-AI/
 │   │   │   ├── api.js
 │   │   │   ├── auth.service.js
 │   │   │   ├── complaint.service.js
-│   │   │   └── admin.service.js
+│   │   │   ├── admin.service.js
+│   │   │   └── infrastructure.service.js
 │   │   │
 │   │   ├── styles/
 │   │   │   └── global.css
@@ -240,7 +298,8 @@ Campuscare-AI/
 ├── controllers/
 │   ├── auth.controller.js
 │   ├── complaint.controller.js
-│   └── admin.controller.js
+│   ├── admin.controller.js
+│   └── infrastructure.controller.js
 │
 ├── middleware/
 │   ├── auth.middleware.js
@@ -250,12 +309,14 @@ Campuscare-AI/
 │
 ├── models/
 │   ├── user.model.js
-│   └── complaint.model.js
+│   ├── complaint.model.js
+│   └── room.model.js
 │
 ├── routes/
 │   ├── auth.routes.js
 │   ├── complaint.routes.js
-│   └── admin.routes.js
+│   ├── admin.routes.js
+│   └── infrastructure.routes.js
 │
 ├── services/
 │   └── ai.service.js
@@ -306,6 +367,12 @@ cd Campuscare-AI
 ---
 
 ## Backend Setup
+
+Enter the backend folder:
+
+```bash
+cd server
+```
 
 Install backend dependencies:
 
@@ -657,7 +724,21 @@ title: Computer lab Wi-Fi is not working
 description: Students cannot connect to the computer laboratory Wi-Fi.
 anonymous: false
 image: optional image file
+roomId: optional room ObjectId
+assetId: optional room asset ObjectId
+affectedQuantity: optional affected unit count
+analysisToken: token returned by the analysis endpoint
+troubleshootingAcknowledged: true
+confirmedTroubleshooting: JSON array of confirmed steps
 ```
+
+#### Analyze Before Submission
+
+```http
+POST /api/complaints/analyze
+```
+
+This authenticated endpoint returns the complaint summary, a maximum of four troubleshooting steps and a signed analysis token valid for ten minutes.
 
 #### Get Student Complaints
 
@@ -731,6 +812,14 @@ Example:
 GET /api/admin/complaints/:id
 ```
 
+#### Generate Optional Admin Suggestions
+
+```http
+POST /api/admin/complaints/:id/suggestions
+```
+
+AI suggestions are generated only when an authorized department admin explicitly requests them.
+
 #### Update Complaint Status
 
 ```http
@@ -748,6 +837,27 @@ PATCH /api/admin/status/:id
 
 ```http
 GET /api/admin/dashboard
+```
+
+#### Get Analytics and Report Data
+
+```http
+GET /api/admin/analytics
+```
+
+Supported filters include `period`, `startDate`, `endDate`, `building`, `floor`, `room`, `assetType`, `category`, `priority` and `status`.
+
+### Infrastructure Routes
+
+All infrastructure routes require authentication. Modification routes also require the admin role.
+
+```http
+GET   /api/infrastructure/options
+GET   /api/infrastructure/rooms
+GET   /api/infrastructure/rooms/:id
+POST  /api/infrastructure/rooms
+PATCH /api/infrastructure/rooms/:roomId/assets/:assetId
+POST  /api/infrastructure/seed
 ```
 
 ---
@@ -848,6 +958,10 @@ Never return the OTP directly in the frontend API response.
 - Controlled image uploads
 - Protected complaint status updates
 - Prevention of repeated complaint support
+- Signed pre-submission AI analysis with ten-minute expiry
+- Server verification that every troubleshooting step was confirmed
+- Server-side room and asset validation
+- Department-protected infrastructure complaint access
 - Environment variables for secrets
 
 ---
@@ -951,19 +1065,19 @@ Use multiple admins to verify that department filtering works correctly.
 2. Register IT admin
 3. Register Hostel admin
 4. Login as student
-5. Submit an IT complaint
-6. Confirm AI assigns department IT
-7. Login as IT admin
-8. Confirm IT complaint appears
-9. Login as Hostel admin
-10. Confirm IT complaint does not appear
-11. Update complaint status as IT admin
-12. Login as student
-13. Confirm new status and admin remark
-14. Submit a similar complaint as another student
-15. Confirm duplicate support option appears
-16. Support the existing complaint
-17. Confirm repeated support is blocked
+5. Initialize or create campus rooms and assets as an admin
+6. Submit an IT complaint linked to a room or asset
+7. Confirm all AI troubleshooting steps before final submission
+8. Confirm AI assigns department IT
+9. Login as IT admin and confirm the complaint appears
+10. Request optional admin AI suggestions
+11. Confirm another department admin cannot access the complaint
+12. Update the complaint status and add a remark
+13. Confirm the student sees the new status and remark
+14. Verify infrastructure affected counts exclude resolved complaints
+15. Verify Analytics date and location filters
+16. Export a filtered CSV from Reports
+17. Submit a similar complaint and verify duplicate support behavior
 ```
 
 ---
@@ -985,8 +1099,9 @@ Planned improvements include:
 - Real-time updates using Socket.IO
 - Advanced semantic duplicate detection
 - Complaint escalation
-- Department performance analytics
-- Export complaints to CSV or PDF
+- PDF report export
+- Excel/CSV bulk infrastructure import
+- SVG-based interactive campus blueprint picker
 - Cloud image storage
 - MongoDB Atlas deployment
 - Frontend deployment
@@ -1137,18 +1252,24 @@ You may add an MIT Licence later if you want others to use, modify, and distribu
 
 ## Project Status
 
-CampusCare AI currently supports the complete core complaint workflow:
+CampusCare AI currently supports the complaint, infrastructure and reporting workflow:
 
 ```text
 Authentication
         ↓
-AI complaint analysis
+Room and asset location selection
+        ↓
+AI complaint analysis and mandatory troubleshooting confirmation
         ↓
 Automatic department routing
         ↓
 Duplicate complaint support
         ↓
 Department-based admin dashboard
+        ↓
+Infrastructure drill-down, interactive analytics and filtered reports
+        ↓
+Optional on-demand admin AI suggestions
         ↓
 Status and remark updates
         ↓

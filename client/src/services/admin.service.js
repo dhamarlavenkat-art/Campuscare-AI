@@ -31,3 +31,15 @@ export const getAdminComplaintById = async (complaintId) => {
 
     return response.data;
 };
+
+export const getAdminComplaintSuggestions = async (complaintId) => {
+    const response = await api.post(
+        `/admin/complaints/${complaintId}/suggestions`
+    );
+    return response.data;
+};
+
+export const getAdminAnalytics = async (params = {}) => {
+    const response = await api.get("/admin/analytics", { params });
+    return response.data;
+};

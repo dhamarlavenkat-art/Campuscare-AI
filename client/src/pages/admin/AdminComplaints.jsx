@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
@@ -21,7 +21,7 @@ const AdminComplaints = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [total, setTotal] = useState(0);
 
-    const fetchComplaints = async () => {
+    const fetchComplaints = useCallback(async () => {
         try {
             setLoading(true);
             setError("");
@@ -61,17 +61,18 @@ const AdminComplaints = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [
+        page,
+        filters.search,
+        filters.sort,
+        filters.status,
+        filters.category,
+        filters.priority
+    ]);
 
     useEffect(() => {
         fetchComplaints();
-    }, [
-        page,
-        filters.status,
-        filters.category,
-        filters.priority,
-        filters.sort
-    ]);
+    }, [fetchComplaints]);
 
     const handleFilterChange = (event) => {
         const { name, value } = event.target;

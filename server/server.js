@@ -6,6 +6,7 @@ const authRouter = require("./routes/auth.routes")
 const authenticateToken = require("./middleware/auth.middleware");
 const complaintRouter = require("./routes/complaint.routes");
 const adminRouter = require("./routes/admin.routes");
+const infrastructureRouter = require("./routes/infrastructure.routes");
 const path = require("path");
 const helmet = require("helmet");
 
@@ -24,6 +25,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/api/auth",authRouter);
 app.use("/api/complaints",complaintRouter);
 app.use("/api/admin",adminRouter);
+app.use("/api/infrastructure", infrastructureRouter);
 
 
 app.get("/api/profile",authenticateToken,(req,res)=>{

@@ -4,6 +4,7 @@ const router = express.Router();
 const authenticateToken = require("../middleware/auth.middleware");
 const upload = require("../middleware/upload.middleware");
 const{
+    analyzeComplaintPreview,
     createComplaint,
     getMyComplaints,
     getComplaintById,
@@ -18,6 +19,13 @@ const {
 }=require("../validation/complaint.validation");
 
 
+router.post(
+    "/analyze",
+    authenticateToken,
+    complaintValidation,
+    validate,
+    analyzeComplaintPreview
+);
 router.post(
     "/create",
     authenticateToken,

@@ -21,6 +21,9 @@ import MyComplaints from "../pages/student/MyComplaints";
 import ComplaintDetails from "../pages/student/ComplaintDetails";
 import AdminComplaints from "../pages/admin/AdminComplaints";
 import AdminComplaintDetails from "../pages/admin/AdminComplaintDetails";
+import AdminInfrastructure from "../pages/admin/AdminInfrastructure";
+import AdminAnalytics from "../pages/admin/AdminAnalytics";
+import AdminReports from "../pages/admin/AdminReports";
 
 const AppRoutes = () => {
     return (
@@ -105,6 +108,36 @@ const AppRoutes = () => {
         <ProtectedRoute>
             <RoleRoute allowedRole="admin">
                 <AdminComplaintDetails />
+            </RoleRoute>
+        </ProtectedRoute>
+    }
+/>
+<Route
+    path="/admin/infrastructure"
+    element={
+        <ProtectedRoute>
+            <RoleRoute allowedRole="admin">
+                <AdminInfrastructure />
+            </RoleRoute>
+        </ProtectedRoute>
+    }
+/>
+<Route
+    path="/admin/analytics"
+    element={
+        <ProtectedRoute>
+            <RoleRoute allowedRole="admin">
+                <AdminAnalytics />
+            </RoleRoute>
+        </ProtectedRoute>
+    }
+/>
+<Route
+    path="/admin/reports"
+    element={
+        <ProtectedRoute>
+            <RoleRoute allowedRole="admin">
+                <AdminReports />
             </RoleRoute>
         </ProtectedRoute>
     }

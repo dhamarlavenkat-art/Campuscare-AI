@@ -1,5 +1,10 @@
 import api from "./api";
 
+export const analyzeComplaintBeforeSubmit = async (data) => {
+    const response = await api.post("/complaints/analyze", data);
+    return response.data;
+};
+
 export const createComplaint = async (complaintData) => {
     const response = await api.post(
         "/complaints/create",

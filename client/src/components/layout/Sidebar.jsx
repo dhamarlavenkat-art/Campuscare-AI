@@ -2,7 +2,10 @@ import { NavLink } from "react-router-dom";
 import {
     LayoutDashboard,
     PlusCircle,
-    ClipboardList
+    ClipboardList,
+    Building2,
+    ChartNoAxesCombined,
+    FileText
 } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth";
@@ -38,6 +41,21 @@ const Sidebar = ({ isOpen, onClose }) => {
             label: "Complaints",
             path: "/admin/complaints",
             icon: ClipboardList
+        },
+        {
+            label: "Infrastructure",
+            path: "/admin/infrastructure",
+            icon: Building2
+        },
+        {
+            label: "Analytics",
+            path: "/admin/analytics",
+            icon: ChartNoAxesCombined
+        },
+        {
+            label: "Reports",
+            path: "/admin/reports",
+            icon: FileText
         }
     ];
 

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
     Link,
     useParams
@@ -8,6 +8,7 @@ import DashboardLayout from "../../components/layout/DashboardLayout";
 
 import {
     getAdminComplaintById,
+    getAdminComplaintSuggestions,
     updateComplaintStatus
 } from "../../services/admin.service";
 
@@ -25,8 +26,11 @@ const AdminComplaintDetails = () => {
     const [updating, setUpdating] = useState(false);
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
+    const [adminSuggestions, setAdminSuggestions] = useState(null);
+    const [suggestionsLoading, setSuggestionsLoading] = useState(false);
+    const [suggestionsError, setSuggestionsError] = useState("");
 
-    const fetchComplaint = async () => {
+    const fetchComplaint = useCallback(async () => {
         try {
             setLoading(true);
             setError("");
@@ -49,11 +53,11 @@ const AdminComplaintDetails = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
     useEffect(() => {
         fetchComplaint();
-    }, [id]);
+    }, [fetchComplaint]);
 
     const handleChange = (event) => {
         const { name, value } = event.target;
@@ -84,6 +88,22 @@ const AdminComplaintDetails = () => {
             );
         } finally {
             setUpdating(false);
+        }
+    };
+
+    const handleGetSuggestions = async () => {
+        try {
+            setSuggestionsLoading(true);
+            setSuggestionsError("");
+            const response = await getAdminComplaintSuggestions(id);
+            setAdminSuggestions(response.data || []);
+        } catch (requestError) {
+            setSuggestionsError(
+                requestError.response?.data?.message ||
+                    "Unable to generate suggestions."
+            );
+        } finally {
+            setSuggestionsLoading(false);
         }
     };
 
@@ -211,6 +231,29 @@ const AdminComplaintDetails = () => {
                                 ).toLocaleString()}
                             </strong>
                         </div>
+
+                        <div>
+                            <span>Location</span>
+                            <strong>
+                                {complaint.location?.roomNumber
+                                    ? `${complaint.location.building}, Floor ${complaint.location.floor}, Room ${complaint.location.roomNumber}`
+                                    : "Not linked"}
+                            </strong>
+                        </div>
+
+                        <div>
+                            <span>Asset</span>
+                            <strong>
+                                {complaint.location?.assetName || "Whole room"}
+                            </strong>
+                        </div>
+
+                        {complaint.location?.assetId && (
+                            <div>
+                                <span>Units Affected</span>
+                                <strong>{complaint.location.affectedQuantity || 1}</strong>
+                            </div>
+                        )}
                     </div>
 
                     <div className="details-section">
@@ -227,23 +270,43 @@ const AdminComplaintDetails = () => {
                         </div>
                     )}
 
-                    {complaint.troubleshooting?.length > 0 && (
-                        <div className="details-section">
-                            <h3>
-                                Suggested Troubleshooting
-                            </h3>
+                    <div className="details-section admin-ai-assist">
+                        <div className="admin-ai-assist-heading">
+                            <div>
+                                <h3>Optional AI Assistance</h3>
+                                <p>Generate concise investigation ideas only when you need another perspective.</p>
+                            </div>
 
-                            <ol className="troubleshooting-list">
-                                {complaint.troubleshooting.map(
-                                    (step, index) => (
-                                        <li key={index}>
-                                            {step}
-                                        </li>
-                                    )
-                                )}
-                            </ol>
+                            <button
+                                type="button"
+                                className="reset-filter-button"
+                                onClick={handleGetSuggestions}
+                                disabled={suggestionsLoading}
+                            >
+                                {suggestionsLoading
+                                    ? "Generating..."
+                                    : adminSuggestions
+                                      ? "Regenerate Suggestions"
+                                      : "Get AI Suggestions"}
+                            </button>
                         </div>
-                    )}
+
+                        {suggestionsError && (
+                            <div className="error-message">{suggestionsError}</div>
+                        )}
+
+                        {adminSuggestions && (
+                            adminSuggestions.length ? (
+                                <ol className="troubleshooting-list">
+                                    {adminSuggestions.map((suggestion, index) => (
+                                        <li key={`${suggestion}-${index}`}>{suggestion}</li>
+                                    ))}
+                                </ol>
+                            ) : (
+                                <p>No additional suggestions were generated.</p>
+                            )
+                        )}
+                    </div>
 
                     {complaint.image && (
                         <div className="details-section">

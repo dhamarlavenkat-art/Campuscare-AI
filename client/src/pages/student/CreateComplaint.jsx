@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import {
+    analyzeComplaintBeforeSubmit,
     createComplaint,
     supportComplaint
 } from "../../services/complaint.service";
+import { getInfrastructureOptions } from "../../services/infrastructure.service";
 
 const CreateComplaint = () => {
     const navigate = useNavigate();
@@ -14,12 +16,21 @@ const CreateComplaint = () => {
         title: "",
         description: "",
         anonymous: false,
-        image: null
+        image: null,
+        building: "",
+        floor: "",
+        roomId: "",
+        assetId: "",
+        affectedQuantity: 1
     });
+
+    const [infrastructureRooms, setInfrastructureRooms] = useState([]);
 
     const [error, setError] = useState("");
     const [message, setMessage] = useState("");
     const [loading, setLoading] = useState(false);
+    const [analysisPreview, setAnalysisPreview] = useState(null);
+    const [checkedSteps, setCheckedSteps] = useState([]);
 
     const [duplicateComplaint, setDuplicateComplaint] =
         useState(null);
@@ -27,9 +38,21 @@ const CreateComplaint = () => {
     const [supportLoading, setSupportLoading] =
         useState(false);
 
+    useEffect(() => {
+        getInfrastructureOptions()
+            .then((response) => setInfrastructureRooms(response.data || []))
+            .catch(() => setInfrastructureRooms([]));
+    }, []);
+
     const handleChange = (event) => {
         const { name, value, type, checked, files } =
             event.target;
+
+        if (name === "title" || name === "description") {
+            setAnalysisPreview(null);
+            setCheckedSteps([]);
+            setMessage("");
+        }
 
         if (type === "checkbox") {
             setFormData((previousData) => ({
@@ -51,7 +74,11 @@ const CreateComplaint = () => {
 
         setFormData((previousData) => ({
             ...previousData,
-            [name]: value
+            [name]: value,
+            ...(name === "building" && { floor: "", roomId: "", assetId: "", affectedQuantity: 1 }),
+            ...(name === "floor" && { roomId: "", assetId: "", affectedQuantity: 1 }),
+            ...(name === "roomId" && { assetId: "", affectedQuantity: 1 }),
+            ...(name === "assetId" && { affectedQuantity: 1 })
         }));
     };
 
@@ -64,6 +91,29 @@ const CreateComplaint = () => {
         setLoading(true);
 
         try {
+            if (!analysisPreview) {
+                const response = await analyzeComplaintBeforeSubmit({
+                    title: formData.title,
+                    description: formData.description
+                });
+
+                setAnalysisPreview(response.data);
+                setCheckedSteps(
+                    response.data.troubleshooting.map(() => false)
+                );
+                setMessage(response.message);
+                return;
+            }
+
+            const allStepsConfirmed =
+                checkedSteps.length === analysisPreview.troubleshooting.length &&
+                checkedSteps.every(Boolean);
+
+            if (!allStepsConfirmed) {
+                setError("Confirm every troubleshooting step before submitting.");
+                return;
+            }
+
             const complaintData = new FormData();
 
             complaintData.append(
@@ -81,11 +131,35 @@ const CreateComplaint = () => {
                 formData.anonymous
             );
 
+            complaintData.append(
+                "analysisToken",
+                analysisPreview.analysisToken
+            );
+
+            complaintData.append(
+                "troubleshootingAcknowledged",
+                "true"
+            );
+
+            complaintData.append(
+                "confirmedTroubleshooting",
+                JSON.stringify(analysisPreview.troubleshooting)
+            );
+
             if (formData.image) {
                 complaintData.append(
                     "image",
                     formData.image
                 );
+            }
+
+            if (formData.roomId) {
+                complaintData.append("roomId", formData.roomId);
+            }
+
+            if (formData.assetId) {
+                complaintData.append("assetId", formData.assetId);
+                complaintData.append("affectedQuantity", formData.affectedQuantity);
             }
 
             const response =
@@ -94,16 +168,25 @@ const CreateComplaint = () => {
             if (response.duplicate) {
                 setDuplicateComplaint(response.data);
                 setMessage(response.message);
+                setAnalysisPreview(null);
+                setCheckedSteps([]);
                 return;
             }
 
             setMessage(response.message);
+            setAnalysisPreview(null);
+            setCheckedSteps([]);
 
             setFormData({
                 title: "",
                 description: "",
                 anonymous: false,
-                image: null
+                image: null,
+                building: "",
+                floor: "",
+                roomId: "",
+                assetId: "",
+                affectedQuantity: 1
             });
 
             setTimeout(() => {
@@ -118,6 +201,19 @@ const CreateComplaint = () => {
             setLoading(false);
         }
     };
+
+    const buildings = [...new Set(infrastructureRooms.map((room) => room.building))];
+    const floors = [...new Set(
+        infrastructureRooms
+            .filter((room) => room.building === formData.building)
+            .map((room) => room.floor)
+    )].sort((a, b) => a - b);
+    const availableRooms = infrastructureRooms.filter(
+        (room) => room.building === formData.building &&
+            String(room.floor) === formData.floor
+    );
+    const selectedRoom = infrastructureRooms.find((room) => room._id === formData.roomId);
+    const selectedAsset = selectedRoom?.assets.find((asset) => asset._id === formData.assetId);
 
     const handleSupportComplaint = async () => {
         if (!duplicateComplaint?.complaintId) {
@@ -212,6 +308,89 @@ const CreateComplaint = () => {
                         />
                     </div>
 
+                    {analysisPreview && (
+                        <section className="troubleshooting-confirmation">
+                            <div>
+                                <h2>Try these steps first</h2>
+                                <p>
+                                    Mark every step after checking it. You can submit only after all steps are confirmed.
+                                </p>
+                            </div>
+
+                            {analysisPreview.summary && (
+                                <p className="troubleshooting-summary">
+                                    <strong>AI summary:</strong> {analysisPreview.summary}
+                                </p>
+                            )}
+
+                            <div className="troubleshooting-checklist">
+                                {analysisPreview.troubleshooting.map((step, index) => (
+                                    <label key={`${step}-${index}`}>
+                                        <input
+                                            type="checkbox"
+                                            checked={checkedSteps[index] || false}
+                                            onChange={(event) => {
+                                                setCheckedSteps((current) =>
+                                                    current.map((checked, stepIndex) =>
+                                                        stepIndex === index ? event.target.checked : checked
+                                                    )
+                                                );
+                                                setError("");
+                                            }}
+                                        />
+                                        <span>{step}</span>
+                                    </label>
+                                ))}
+                            </div>
+                        </section>
+                    )}
+
+                    <div className="form-group">
+                        <label>Issue Location</label>
+
+                        <div className="location-field-grid">
+                            <select name="building" value={formData.building} onChange={handleChange}>
+                                <option value="">Select building (optional)</option>
+                                {buildings.map((building) => <option key={building}>{building}</option>)}
+                            </select>
+
+                            <select name="floor" value={formData.floor} onChange={handleChange} disabled={!formData.building}>
+                                <option value="">Select floor</option>
+                                {floors.map((floor) => <option key={floor} value={floor}>Floor {floor}</option>)}
+                            </select>
+
+                            <select name="roomId" value={formData.roomId} onChange={handleChange} disabled={!formData.floor}>
+                                <option value="">Select room</option>
+                                {availableRooms.map((room) => <option key={room._id} value={room._id}>Room {room.roomNumber} · {room.roomType}</option>)}
+                            </select>
+
+                            <select name="assetId" value={formData.assetId} onChange={handleChange} disabled={!selectedRoom}>
+                                <option value="">Whole room / no asset</option>
+                                {selectedRoom?.assets.map((asset) => <option key={asset._id} value={asset._id}>{asset.name} ({asset.type})</option>)}
+                            </select>
+
+                            {selectedAsset && (
+                                <label className="affected-quantity-field">
+                                    How many are affected?
+                                    <input
+                                        type="number"
+                                        name="affectedQuantity"
+                                        min="1"
+                                        max={selectedAsset.quantity}
+                                        value={formData.affectedQuantity}
+                                        onChange={handleChange}
+                                        required
+                                    />
+                                    <small>Available in room: {selectedAsset.quantity}</small>
+                                </label>
+                            )}
+                        </div>
+
+                        <small className="form-help">
+                            Linking a room or asset helps the correct admin see every problem in that location.
+                        </small>
+                    </div>
+
                     <div className="form-group">
                         <label htmlFor="image">
                             Upload Image
@@ -246,11 +425,18 @@ const CreateComplaint = () => {
                     <button
                         type="submit"
                         className="primary-button"
-                        disabled={loading}
+                        disabled={
+                            loading ||
+                            (analysisPreview && !checkedSteps.every(Boolean))
+                        }
                     >
                         {loading
-                            ? "AI is analyzing..."
-                            : "Submit Complaint"}
+                            ? analysisPreview
+                                ? "Submitting Complaint..."
+                                : "AI is analyzing..."
+                            : analysisPreview
+                              ? "Submit Complaint"
+                              : "Continue to Troubleshooting"}
                     </button>
                 </form>
             </section>
