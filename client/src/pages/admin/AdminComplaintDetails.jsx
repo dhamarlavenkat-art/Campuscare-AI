@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
     Link,
     useParams
@@ -29,6 +29,7 @@ const AdminComplaintDetails = () => {
     const [adminSuggestions, setAdminSuggestions] = useState(null);
     const [suggestionsLoading, setSuggestionsLoading] = useState(false);
     const [suggestionsError, setSuggestionsError] = useState("");
+    const updateInFlight = useRef(false);
 
     const fetchComplaint = useCallback(async () => {
         try {
@@ -42,8 +43,7 @@ const AdminComplaintDetails = () => {
 
             setFormData({
                 status: response.data.status || "Pending",
-                adminRemark:
-                    response.data.adminRemark || ""
+                adminRemark: ""
             });
         } catch (error) {
             setError(
@@ -70,7 +70,9 @@ const AdminComplaintDetails = () => {
 
     const handleSubmit = async (event) => {
         event.preventDefault();
+        if (updateInFlight.current) return;
 
+        updateInFlight.current = true;
         setUpdating(true);
         setError("");
         setMessage("");
@@ -81,12 +83,17 @@ const AdminComplaintDetails = () => {
 
             setComplaint(response.data);
             setMessage(response.message);
+            setFormData({
+                status: response.data.status,
+                adminRemark: ""
+            });
         } catch (error) {
             setError(
                 error.response?.data?.message ||
                     "Unable to update complaint status."
             );
         } finally {
+            updateInFlight.current = false;
             setUpdating(false);
         }
     };
@@ -112,6 +119,14 @@ const AdminComplaintDetails = () => {
             .toLowerCase()
             .replaceAll(" ", "-");
     };
+
+    const visibleHistory = (complaint?.history || []).filter((item, index, history) => {
+        if (index === 0) return true;
+        const previous = history[index - 1];
+        return item.action !== previous.action ||
+            item.status !== previous.status ||
+            (item.remark || "").trim() !== (previous.remark || "").trim();
+    });
 
     if (loading) {
         return (
@@ -345,13 +360,13 @@ const AdminComplaintDetails = () => {
                     <div className="details-section">
                         <h3>Complaint History</h3>
 
-                        {complaint.history?.length ? (
+                        {visibleHistory.length ? (
                             <div className="history-timeline">
-                                {complaint.history.map(
+                                {visibleHistory.map(
                                     (item, index) => (
                                         <div
                                             className="history-item"
-                                            key={`${item.action}-${index}`}
+                                            key={item._id || `${item.action}-${index}`}
                                         >
                                             <div className="history-dot" />
 

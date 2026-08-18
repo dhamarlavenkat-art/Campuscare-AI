@@ -8,15 +8,11 @@ const RoleRoute = ({ allowedRole, children }) => {
         return <Navigate to="/login" replace />;
     }
 
-    const allowedRoles = Array.isArray(allowedRole) ? allowedRole : [allowedRole];
-
-    if (!allowedRoles.includes(user.role)) {
+    if (user.role !== allowedRole) {
         return (
             <Navigate
                 to={
-                    user.role === "super_admin"
-                        ? "/super-admin/infrastructure-import"
-                        : user.role === "admin"
+                    user.role === "admin"
                         ? "/admin/dashboard"
                         : "/student/dashboard"
                 }

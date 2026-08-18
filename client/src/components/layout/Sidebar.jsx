@@ -5,8 +5,7 @@ import {
     ClipboardList,
     Building2,
     ChartNoAxesCombined,
-    FileText,
-    FileUp
+    FileText
 } from "lucide-react";
 
 import useAuth from "../../hooks/useAuth";
@@ -60,28 +59,8 @@ const Sidebar = ({ isOpen, onClose }) => {
         }
     ];
 
-    const superAdminLinks = [
-        {
-            label: "Infrastructure Import",
-            path: "/super-admin/infrastructure-import",
-            icon: FileUp
-        },
-        {
-            label: "College Infrastructure",
-            path: "/admin/infrastructure",
-            icon: Building2
-        },
-        {
-            label: "College Analytics",
-            path: "/super-admin/analytics",
-            icon: ChartNoAxesCombined
-        }
-    ];
-
     const links =
-        user?.role === "super_admin"
-            ? superAdminLinks
-            : user?.role === "admin"
+        user?.role === "admin"
             ? adminLinks
             : studentLinks;
 
@@ -93,9 +72,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <h2>CampusCare AI</h2>
 
                 <p>
-                    {user?.role === "super_admin"
-                        ? "College Super Admin"
-                        : user?.role === "admin"
+                    {user?.role === "admin"
                         ? `${user.department} Admin`
                         : "Student Portal"}
                 </p>

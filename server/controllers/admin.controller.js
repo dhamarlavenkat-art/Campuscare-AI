@@ -137,6 +137,9 @@ const getAdminComplaintById = async (req, res) => {
 const updateComplaintStatus = async (req, res) => {
     try {
         const { status, adminRemark } = req.body;
+        const normalizedRemark = typeof adminRemark === "string"
+            ? adminRemark.trim()
+            : "";
 
         const validStatus = [
             "Pending",
@@ -168,17 +171,34 @@ const updateComplaintStatus = async (req, res) => {
             });
         }
 
+        const lastHistory = complaint.history?.[complaint.history.length - 1];
+        const sameStatus = complaint.status === status;
+        const sameAsLastUpdate = lastHistory?.action === "Status Updated" &&
+            lastHistory.status === status &&
+            (lastHistory.remark || "").trim() === normalizedRemark;
+
+        if ((sameStatus && !normalizedRemark) || sameAsLastUpdate) {
+            await complaint.populate("createdBy", "name email");
+            return res.status(200).json({
+                success: true,
+                unchanged: true,
+                message: "No new status or remark to update",
+                data: complaint
+            });
+        }
+
         complaint.status = status;
-        complaint.adminRemark = adminRemark || "";
+        complaint.adminRemark = normalizedRemark;
 
         complaint.history.push({
             action: "Status Updated",
             status,
-            remark: adminRemark || "",
+            remark: normalizedRemark,
             updatedBy: "Admin"
         });
 
         await complaint.save();
+        await complaint.populate("createdBy", "name email");
 
         return res.status(200).json({
             success: true,
@@ -330,12 +350,7 @@ const getAnalytics = async (req, res) => {
             return res.status(400).json({ success: false, message: "Invalid date range" });
         }
 
-        const filter = req.user.role === "super_admin"
-            ? {}
-            : buildDepartmentFilter(req.user.department);
-        if (req.user.role === "super_admin" && req.query.department) {
-            Object.assign(filter, buildDepartmentFilter(req.query.department));
-        }
+        const filter = buildDepartmentFilter(req.user.department);
         addInfrastructureFilters(filter, req.query);
         if (req.query.category) filter.category = req.query.category;
         if (req.query.priority) filter.priority = req.query.priority;
@@ -395,27 +410,6 @@ const getAnalytics = async (req, res) => {
                 eventInRange(complaint, "Resolved") ||
                 eventInRange(complaint, "Rejected");
         });
-
-        const statusBreakdown = ["Pending", "In Progress", "Resolved", "Rejected"].map(
-            (status) => ({
-                status,
-                count: complaints.filter((complaint) => complaint.status === status).length
-            })
-        );
-
-        const countBy = (items, field) => {
-            const counts = new Map();
-            items.forEach((item) => {
-                const key = item[field] || "Other";
-                counts.set(key, (counts.get(key) || 0) + 1);
-            });
-            return [...counts.entries()]
-                .map(([name, count]) => ({ name, count }))
-                .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
-        };
-
-        const categoryBreakdown = countBy(received, "category");
-        const departmentBreakdown = countBy(received, "department");
 
         const dateKey = (value) => {
             const date = new Date(value);
@@ -482,9 +476,6 @@ const getAnalytics = async (req, res) => {
                         ? Number(((resolvedFromReceived.length / received.length) * 100).toFixed(1))
                         : 0
                 },
-                statusBreakdown,
-                categoryBreakdown,
-                departmentBreakdown,
                 trend: [...trendMap.values()],
                 complaints: reportComplaints.slice(0, 100)
             }

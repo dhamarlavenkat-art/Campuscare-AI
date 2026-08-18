@@ -3,14 +3,12 @@ const Room = require("../models/room.model");
 const Complaint = require("../models/complaint.model");
 
 const normalizeText = (value) => value?.trim();
-const complaintDepartmentFilter = (user) => user.role === "super_admin"
-    ? {}
-    : {
-          department: {
-              $regex: `^${user.department.trim()}$`,
-              $options: "i"
-          }
-      };
+const complaintDepartmentFilter = (user) => ({
+    department: {
+        $regex: `^${user.department.trim()}$`,
+        $options: "i"
+    }
+});
 
 const getInfrastructureOptions = async (req, res) => {
     try {
@@ -186,6 +184,86 @@ const createRoom = async (req, res) => {
     }
 };
 
+const updateRoom = async (req, res) => {
+    try {
+        if (!mongoose.isValidObjectId(req.params.id)) {
+            return res.status(400).json({ success: false, message: "Invalid room ID" });
+        }
+
+        const room = await Room.findById(req.params.id);
+        if (!room || !room.active) {
+            return res.status(404).json({ success: false, message: "Room not found" });
+        }
+
+        const { building, floor, roomNumber, roomType, capacity, department, assets } = req.body;
+        const normalizedFloor = Number(floor);
+        const normalizedCapacity = Number(capacity) || 0;
+
+        if (!building?.trim() || !Number.isInteger(normalizedFloor) || normalizedFloor < 0 || !roomNumber?.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Building, a valid floor and room number are required"
+            });
+        }
+
+        const normalizedAssets = Array.isArray(assets) ? assets : [];
+        const invalidAsset = normalizedAssets.some(
+            (asset) => !asset.type?.trim() || !Number.isInteger(Number(asset.quantity)) || Number(asset.quantity) < 1
+        );
+
+        if (invalidAsset) {
+            return res.status(400).json({
+                success: false,
+                message: "Each asset needs a type and a whole-number quantity of at least one"
+            });
+        }
+
+        const updatedAssets = normalizedAssets.map((asset) => {
+            const existingAsset = asset._id && mongoose.isValidObjectId(asset._id)
+                ? room.assets.id(asset._id)
+                : null;
+            const quantity = Number(asset.quantity);
+            const faulty = Math.min(existingAsset?.faulty || 0, quantity);
+            const underMaintenance = Math.min(
+                existingAsset?.underMaintenance || 0,
+                quantity - faulty
+            );
+
+            return {
+                ...(existingAsset ? { _id: existingAsset._id } : {}),
+                name: asset.type.trim(),
+                type: asset.type.trim(),
+                assetCode: existingAsset?.assetCode || "",
+                quantity,
+                working: Math.max(0, quantity - faulty - underMaintenance),
+                faulty,
+                underMaintenance
+            };
+        });
+
+        room.building = building.trim();
+        room.floor = normalizedFloor;
+        room.roomNumber = roomNumber.trim();
+        room.roomType = normalizeText(roomType) || "Classroom";
+        room.capacity = normalizedCapacity;
+        room.department = normalizeText(department) || "General";
+        room.assets = updatedAssets;
+        await room.save();
+
+        return res.status(200).json({
+            success: true,
+            message: `Room ${room.roomNumber} was updated`,
+            data: room
+        });
+    } catch (error) {
+        const status = error.code === 11000 ? 409 : 500;
+        const message = error.code === 11000
+            ? "Another room already uses this building, floor and room number"
+            : error.message;
+        return res.status(status).json({ success: false, message });
+    }
+};
+
 const updateAsset = async (req, res) => {
     try {
         const room = await Room.findById(req.params.roomId);
@@ -280,6 +358,7 @@ module.exports = {
     getRooms,
     getRoomDetails,
     createRoom,
+    updateRoom,
     updateAsset,
     seedInfrastructure
 };

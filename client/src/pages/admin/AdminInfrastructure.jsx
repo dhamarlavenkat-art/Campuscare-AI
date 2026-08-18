@@ -1,14 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Building2, DoorOpen, Lightbulb, Wrench } from "lucide-react";
+import { Building2, DoorOpen, FileUp, Lightbulb, Pencil, Wrench } from "lucide-react";
 
 import DashboardLayout from "../../components/layout/DashboardLayout";
 import {
     createInfrastructureRoom,
     getInfrastructureRoom,
     getInfrastructureRooms,
-    initializeInfrastructure
+    initializeInfrastructure,
+    updateInfrastructureRoom
 } from "../../services/infrastructure.service";
+
+const spaceTypes = ["Classroom", "Computer Lab", "Science Lab", "Data Science Lab", "Server Room", "Network Room", "Library", "Office", "Staff Room", "Seminar Hall", "Auditorium", "Store Room", "Electrical Room", "Washroom", "Other"];
+const departments = ["General", "Administration", "IT", "Library", "Hostel", "Transport", "Examination", "Maintenance", "Accounts", "Sports", "Placement", "Security"];
+const assetTypes = ["Fan", "Light", "Projector", "Computer", "Server", "Router", "Switch", "AC", "Smart Board", "CCTV", "UPS", "Printer", "Plug Point", "Furniture", "Lab Equipment", "Other"];
 
 const emptyRoomForm = {
     building: "",
@@ -36,6 +41,9 @@ const AdminInfrastructure = () => {
     const [showRoomForm, setShowRoomForm] = useState(false);
     const [roomForm, setRoomForm] = useState(emptyRoomForm);
     const [savingRoom, setSavingRoom] = useState(false);
+    const [editRoomForm, setEditRoomForm] = useState(null);
+    const [savingEdit, setSavingEdit] = useState(false);
+    const [detailVersion, setDetailVersion] = useState(0);
     const [loading, setLoading] = useState(true);
     const [detailLoading, setDetailLoading] = useState(false);
     const [message, setMessage] = useState("");
@@ -87,7 +95,7 @@ const AdminInfrastructure = () => {
         };
 
         loadDetails();
-    }, [selectedRoomId, status, assetType]);
+    }, [selectedRoomId, status, assetType, detailVersion]);
 
     const buildings = useMemo(
         () => [...new Set(rooms.map((room) => room.building))],
@@ -191,6 +199,83 @@ const AdminInfrastructure = () => {
         }
     };
 
+    const openRoomEditor = () => {
+        if (!roomDetails?.room) return;
+        const room = roomDetails.room;
+        setEditRoomForm({
+            building: room.building,
+            floor: String(room.floor),
+            roomNumber: room.roomNumber,
+            roomType: room.roomType,
+            capacity: String(room.capacity || 0),
+            department: room.department || "General",
+            assets: room.assets.map((asset) => ({
+                _id: asset._id,
+                type: asset.type,
+                quantity: asset.quantity
+            }))
+        });
+        setError("");
+        setMessage("");
+    };
+
+    const updateEditField = (event) => {
+        const { name, value } = event.target;
+        setEditRoomForm((current) => ({ ...current, [name]: value }));
+    };
+
+    const addEditAsset = () => {
+        setEditRoomForm((current) => ({
+            ...current,
+            assets: [...current.assets, { ...emptyAsset }]
+        }));
+    };
+
+    const updateEditAsset = (index, field, value) => {
+        setEditRoomForm((current) => ({
+            ...current,
+            assets: current.assets.map((asset, assetIndex) =>
+                assetIndex === index ? { ...asset, [field]: value } : asset
+            )
+        }));
+    };
+
+    const removeEditAsset = (index) => {
+        setEditRoomForm((current) => ({
+            ...current,
+            assets: current.assets.filter((_, assetIndex) => assetIndex !== index)
+        }));
+    };
+
+    const saveRoomChanges = async (event) => {
+        event.preventDefault();
+        try {
+            setSavingEdit(true);
+            setError("");
+            setMessage("");
+            const response = await updateInfrastructureRoom(selectedRoomId, {
+                ...editRoomForm,
+                floor: Number(editRoomForm.floor),
+                capacity: Number(editRoomForm.capacity) || 0,
+                assets: editRoomForm.assets.map((asset) => ({
+                    ...asset,
+                    quantity: Number(asset.quantity)
+                }))
+            });
+
+            setSelectedBuilding(response.data.building);
+            setSelectedFloor(String(response.data.floor));
+            setMessage(response.message);
+            setEditRoomForm(null);
+            await loadRooms();
+            setDetailVersion((value) => value + 1);
+        } catch (requestError) {
+            setError(requestError.response?.data?.message || "Unable to update this room.");
+        } finally {
+            setSavingEdit(false);
+        }
+    };
+
     const selectedRoom = roomDetails?.room;
     const complaints = roomDetails?.complaints || [];
     const assetIssues = roomDetails?.assetIssues || [];
@@ -209,6 +294,7 @@ const AdminInfrastructure = () => {
                     <button type="button" className="header-action-button" onClick={() => setShowRoomForm((value) => !value)}>
                         {showRoomForm ? "Close Form" : "Add Room / Lab"}
                     </button>
+                    <Link to="/admin/infrastructure/import" className="header-action-button"><FileUp size={17} /> Import Blueprint / Excel</Link>
                     <Link to="/admin/analytics" className="header-action-button">View Analytics</Link>
                 </div>
             </section>
@@ -230,9 +316,9 @@ const AdminInfrastructure = () => {
                             <label>Building name<input required name="building" value={roomForm.building} onChange={handleRoomField} placeholder="Example: Science Block" /></label>
                             <label>Floor number<input required type="number" min="0" name="floor" value={roomForm.floor} onChange={handleRoomField} placeholder="0 for ground floor" /></label>
                             <label>Room number<input required name="roomNumber" value={roomForm.roomNumber} onChange={handleRoomField} placeholder="Example: 319" /></label>
-                            <label>Space type<select name="roomType" value={roomForm.roomType} onChange={handleRoomField}>{["Classroom", "Computer Lab", "Science Lab", "Data Science Lab", "Server Room", "Network Room", "Library", "Office", "Staff Room", "Seminar Hall", "Auditorium", "Store Room", "Electrical Room", "Washroom", "Other"].map((type) => <option key={type}>{type}</option>)}</select></label>
+                            <label>Space type<select name="roomType" value={roomForm.roomType} onChange={handleRoomField}>{spaceTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
                             <label>Capacity<input type="number" min="0" name="capacity" value={roomForm.capacity} onChange={handleRoomField} placeholder="Number of people" /></label>
-                            <label>Responsible department<select name="department" value={roomForm.department} onChange={handleRoomField}>{["General", "Administration", "IT", "Library", "Hostel", "Transport", "Examination", "Maintenance", "Accounts", "Sports", "Placement", "Security"].map((department) => <option key={department}>{department}</option>)}</select></label>
+                            <label>Responsible department<select name="department" value={roomForm.department} onChange={handleRoomField}>{departments.map((department) => <option key={department}>{department}</option>)}</select></label>
                         </div>
 
                         <div className="room-assets-heading">
@@ -246,7 +332,7 @@ const AdminInfrastructure = () => {
                             <div className="new-assets-list">
                                 {roomForm.assets.map((asset, index) => (
                                     <div className="new-asset-row" key={index}>
-                                        <label>Type<select value={asset.type} onChange={(event) => updateAssetRow(index, "type", event.target.value)}>{["Fan", "Light", "Projector", "Computer", "Server", "Router", "Switch", "AC", "Smart Board", "CCTV", "UPS", "Printer", "Plug Point", "Furniture", "Lab Equipment", "Other"].map((type) => <option key={type}>{type}</option>)}</select></label>
+                                        <label>Type<select value={asset.type} onChange={(event) => updateAssetRow(index, "type", event.target.value)}>{assetTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
                                         <label>Total<input type="number" min="1" value={asset.quantity} onChange={(event) => updateAssetRow(index, "quantity", event.target.value)} /></label>
                                         <button type="button" className="remove-asset-button" onClick={() => removeAssetRow(index)}>Remove</button>
                                     </div>
@@ -297,6 +383,52 @@ const AdminInfrastructure = () => {
                         <article className="stat-card"><span>Reported affected</span><strong>{totalAffected}</strong></article>
                     </section>
 
+                    {editRoomForm && (
+                        <section className="infrastructure-panel room-builder room-edit-panel">
+                            <div className="section-heading-row">
+                                <div>
+                                    <h2>Edit Room {selectedRoom?.roomNumber}</h2>
+                                    <p>Change its location, convert a lab to a classroom, reassign its department or update asset quantities.</p>
+                                </div>
+                                <button type="button" className="reset-filter-button" onClick={() => setEditRoomForm(null)}>Cancel</button>
+                            </div>
+
+                            <form onSubmit={saveRoomChanges}>
+                                <div className="room-builder-grid">
+                                    <label>Building<input required name="building" value={editRoomForm.building} onChange={updateEditField} /></label>
+                                    <label>Floor<input required type="number" min="0" name="floor" value={editRoomForm.floor} onChange={updateEditField} /></label>
+                                    <label>Room number<input required name="roomNumber" value={editRoomForm.roomNumber} onChange={updateEditField} /></label>
+                                    <label>Space type<select name="roomType" value={editRoomForm.roomType} onChange={updateEditField}>{spaceTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+                                    <label>Capacity<input type="number" min="0" name="capacity" value={editRoomForm.capacity} onChange={updateEditField} /></label>
+                                    <label>Responsible department<select name="department" value={editRoomForm.department} onChange={updateEditField}>{departments.map((department) => <option key={department}>{department}</option>)}</select></label>
+                                </div>
+
+                                <div className="room-assets-heading">
+                                    <div><h3>Room assets</h3><p>Existing asset IDs are preserved when quantities or types change.</p></div>
+                                    <button type="button" className="reset-filter-button" onClick={addEditAsset}>Add Asset</button>
+                                </div>
+
+                                {editRoomForm.assets.length === 0 ? (
+                                    <p className="room-builder-help">This room currently has no listed assets.</p>
+                                ) : (
+                                    <div className="new-assets-list">
+                                        {editRoomForm.assets.map((asset, index) => (
+                                            <div className="new-asset-row" key={asset._id || `new-${index}`}>
+                                                <label>Type<select value={asset.type} onChange={(event) => updateEditAsset(index, "type", event.target.value)}>{assetTypes.map((type) => <option key={type}>{type}</option>)}</select></label>
+                                                <label>Total<input type="number" min="1" value={asset.quantity} onChange={(event) => updateEditAsset(index, "quantity", event.target.value)} /></label>
+                                                <button type="button" className="remove-asset-button" onClick={() => removeEditAsset(index)}>Remove</button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <button type="submit" className="primary-button room-save-button" disabled={savingEdit}>
+                                    {savingEdit ? "Saving Changes..." : "Save Room Changes"}
+                                </button>
+                            </form>
+                        </section>
+                    )}
+
                     <section className="infrastructure-panel">
                         <div className="section-heading-row">
                             <div><h2>Floor {selectedFloor} rooms</h2><p>Select a room to see its complete problem list.</p></div>
@@ -307,7 +439,7 @@ const AdminInfrastructure = () => {
                                     type="button"
                                     key={room._id}
                                     className={`room-tile ${selectedRoomId === room._id ? "selected" : ""}`}
-                                    onClick={() => { setSelectedRoomId(room._id); setAssetType(""); }}
+                                    onClick={() => { setSelectedRoomId(room._id); setAssetType(""); setEditRoomForm(null); }}
                                 >
                                     <DoorOpen size={20} />
                                     <strong>{room.roomNumber}</strong>
@@ -324,6 +456,7 @@ const AdminInfrastructure = () => {
                             <div className="infrastructure-panel">
                                 <div className="section-heading-row">
                                     <div><h2>Room {selectedRoom.roomNumber}</h2><p>{selectedRoom.roomType} · Capacity {selectedRoom.capacity}</p></div>
+                                    <button type="button" className="reset-filter-button room-edit-button" onClick={openRoomEditor}><Pencil size={16} /> Edit Room</button>
                                 </div>
                                 <div className="asset-list">
                                     <button type="button" className={`asset-row ${assetType === "" ? "selected" : ""}`} onClick={() => setAssetType("")}>

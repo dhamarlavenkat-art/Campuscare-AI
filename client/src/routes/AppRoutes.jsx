@@ -24,8 +24,7 @@ import AdminComplaintDetails from "../pages/admin/AdminComplaintDetails";
 import AdminInfrastructure from "../pages/admin/AdminInfrastructure";
 import AdminAnalytics from "../pages/admin/AdminAnalytics";
 import AdminReports from "../pages/admin/AdminReports";
-import InfrastructureImport from "../pages/superAdmin/InfrastructureImport";
-import SuperAdminAnalytics from "../pages/superAdmin/SuperAdminAnalytics";
+import InfrastructureImport from "../pages/admin/InfrastructureImport";
 
 const AppRoutes = () => {
     return (
@@ -118,28 +117,18 @@ const AppRoutes = () => {
     path="/admin/infrastructure"
     element={
         <ProtectedRoute>
-            <RoleRoute allowedRole={["admin", "super_admin"]}>
+            <RoleRoute allowedRole="admin">
                 <AdminInfrastructure />
             </RoleRoute>
         </ProtectedRoute>
     }
 />
 <Route
-    path="/super-admin/infrastructure-import"
+    path="/admin/infrastructure/import"
     element={
         <ProtectedRoute>
-            <RoleRoute allowedRole="super_admin">
+            <RoleRoute allowedRole="admin">
                 <InfrastructureImport />
-            </RoleRoute>
-        </ProtectedRoute>
-    }
-/>
-<Route
-    path="/super-admin/analytics"
-    element={
-        <ProtectedRoute>
-            <RoleRoute allowedRole="super_admin">
-                <SuperAdminAnalytics />
             </RoleRoute>
         </ProtectedRoute>
     }

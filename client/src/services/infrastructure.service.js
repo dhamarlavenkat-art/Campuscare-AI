@@ -25,6 +25,11 @@ export const createInfrastructureRoom = async (data) => {
     return response.data;
 };
 
+export const updateInfrastructureRoom = async (roomId, data) => {
+    const response = await api.patch(`/infrastructure/rooms/${roomId}`, data);
+    return response.data;
+};
+
 export const updateInfrastructureAsset = async (roomId, assetId, data) => {
     const response = await api.patch(
         `/infrastructure/rooms/${roomId}/assets/${assetId}`,

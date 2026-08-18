@@ -27,7 +27,7 @@ resetOTPExpire: {
 },
     role:{
         type:String,
-        enum:["student","admin","super_admin"],
+        enum:["student","admin"],
         default:"student"
     },
     department: {
